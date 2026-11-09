@@ -5,5 +5,6 @@ public enum TriggerSource {
     SCHEDULE,
     MANUAL,
     KAFKA,
+    AMQP,
     RETRY
 }

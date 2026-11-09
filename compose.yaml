@@ -17,3 +17,7 @@ services:
     image: apache/kafka:4.1.1
     ports:
       - "9092:9092"
+  rabbitmq:
+    image: rabbitmq:4.1-alpine
+    ports:
+      - "5672:5672"

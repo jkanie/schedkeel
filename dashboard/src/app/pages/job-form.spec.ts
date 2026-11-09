@@ -75,6 +75,16 @@ describe('JobForm', () => {
     expect(created).toBe('ping');
   });
 
+  it('shows the target format for the chosen type', async () => {
+    const { fixture, el } = setUp();
+    const select = el.querySelector('[formcontrolname="type"]') as HTMLSelectElement;
+    select.value = 'AMQP';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    const target = el.querySelector('[formcontrolname="target"]') as HTMLInputElement;
+    expect(target.placeholder).toBe('exchange/routing-key, for example billing/invoice.due');
+  });
+
   it('shows the server problem detail when creation fails', async () => {
     const { fixture, http, el } = setUp();
     type(el, 'name', 'ping');

@@ -1,6 +1,6 @@
 /** Shapes of the schedkeel API (HAL). Only the fields the dashboard uses. */
 
-export type JobType = 'LOG' | 'HTTP' | 'KAFKA' | 'BATCH';
+export type JobType = 'LOG' | 'HTTP' | 'KAFKA' | 'AMQP' | 'BATCH';
 export type Concurrency = 'ALLOW' | 'FORBID';
 export type RunStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'SKIPPED';
 
@@ -56,7 +56,7 @@ export interface Run {
   id: number;
   jobName: string;
   status: RunStatus;
-  trigger: 'SCHEDULE' | 'MANUAL' | 'KAFKA' | 'RETRY';
+  trigger: 'SCHEDULE' | 'MANUAL' | 'KAFKA' | 'AMQP' | 'RETRY';
   attempt: number;
   scheduledFor: string;
   notBefore: string;

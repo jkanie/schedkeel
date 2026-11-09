@@ -49,7 +49,7 @@ class JobCommands {
     String create(
             @Option(longName = "name", required = true, description = "Unique job name") String name,
             @Option(longName = "cron", required = true, description = "6-field cron, in quotes") String cron,
-            @Option(longName = "type", required = true, description = "LOG, HTTP, KAFKA or BATCH") String type,
+            @Option(longName = "type", required = true, description = "LOG, HTTP, KAFKA, AMQP or BATCH") String type,
             @Option(longName = "target", required = true, description = "URL, topic or batch job name") String target,
             @Option(longName = "zone", description = "Time zone, for example America/Whitehorse") String zone,
             @Option(longName = "payload", description = "Body, message or log text") String payload,

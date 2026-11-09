@@ -110,5 +110,12 @@ class JobService {
             throw new InvalidJobException(
                     HttpStatus.BAD_REQUEST, "An HTTP job needs a target that starts with http:// or https://.");
         }
+        if (request.type() == JobType.AMQP) {
+            try {
+                AmqpTarget.parse(request.target());
+            } catch (IllegalArgumentException e) {
+                throw new InvalidJobException(HttpStatus.BAD_REQUEST, e.getMessage());
+            }
+        }
     }
 }

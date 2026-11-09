@@ -20,6 +20,7 @@ const TARGET_HINT: Record<JobType, string> = {
   LOG: 'Text to log when no payload is set',
   HTTP: 'URL to call, for example https://example.org/hook',
   KAFKA: 'Topic to publish to',
+  AMQP: 'exchange/routing-key, for example billing/invoice.due',
   BATCH: 'Spring Batch job name, for example archiveRuns',
 };
 
@@ -55,6 +56,7 @@ const TARGET_HINT: Record<JobType, string> = {
           <option>LOG</option>
           <option>HTTP</option>
           <option>KAFKA</option>
+          <option>AMQP</option>
           <option>BATCH</option>
         </select>
       </label>

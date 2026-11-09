@@ -1,5 +1,6 @@
 package io.github.jkanie.schedkeel.job;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -37,5 +38,28 @@ class JobRequestCheckTests {
         assertThatThrownBy(() -> JobService.check(request("0 0 2 * * *", null, JobType.HTTP, "example.org")))
                 .isInstanceOf(InvalidJobException.class)
                 .hasMessageContaining("http://");
+    }
+
+    @Test
+    void acceptsAnAmqpTargetWithOrWithoutAnExchange() {
+        assertThatCode(() -> JobService.check(request("0 0 2 * * *", null, JobType.AMQP, "billing/invoice.due")))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> JobService.check(request("0 0 2 * * *", null, JobType.AMQP, "/orders")))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> JobService.check(request("0 0 2 * * *", null, JobType.AMQP, "billing")))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void refusesAnAmqpTargetWithNeitherExchangeNorKey() {
+        assertThatThrownBy(() -> JobService.check(request("0 0 2 * * *", null, JobType.AMQP, "/")))
+                .isInstanceOf(InvalidJobException.class)
+                .hasMessageContaining("exchange/routing-key");
+    }
+
+    @Test
+    void splitsAnAmqpTargetAtTheFirstSlash() {
+        assertThat(AmqpTarget.parse("billing/invoice/due")).isEqualTo(new AmqpTarget("billing", "invoice/due"));
+        assertThat(AmqpTarget.parse("/orders").describe()).isEqualTo("the default exchange, routing key 'orders'");
     }
 }

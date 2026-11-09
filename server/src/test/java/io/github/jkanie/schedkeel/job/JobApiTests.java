@@ -47,7 +47,7 @@ class JobApiTests {
         fieldWithPath("description").optional().description("What the job is for"),
         fieldWithPath("cron").description("6-field cron: second, minute, hour, day of month, month, day of week"),
         fieldWithPath("timeZone").optional().description("Zone the cron is read in. Default UTC"),
-        fieldWithPath("type").description("LOG, HTTP, KAFKA or BATCH"),
+        fieldWithPath("type").description("LOG, HTTP, KAFKA, AMQP or BATCH"),
         fieldWithPath("target").description("URL, topic or batch job name, by type"),
         fieldWithPath("payload").optional().type(JsonFieldType.STRING).description("Body, message or log text"),
         fieldWithPath("enabled").optional().type(JsonFieldType.BOOLEAN).description("Default true"),

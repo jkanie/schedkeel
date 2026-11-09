@@ -20,6 +20,16 @@ spring:
     consumer:
       group-id: schedkeel
       auto-offset-reset: earliest
+  rabbitmq:
+    addresses: ${SCHEDKEEL_RABBITMQ_ADDRESSES:localhost:5672}
+    username: ${SCHEDKEEL_RABBITMQ_USER:guest}
+    password: ${SCHEDKEEL_RABBITMQ_PASSWORD:guest}
+    # AMQP jobs wait for the broker's confirm and fail when a message
+    # reaches no queue.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
   batch:
     job:
       enabled: false
@@ -45,6 +55,8 @@ management:
         enabled: true
 
 schedkeel:
+  amqp:
+    trigger-queue: schedkeel.triggers
   kafka:
     trigger-topic: schedkeel.triggers
     run-events-topic: schedkeel.run-events
