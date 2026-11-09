@@ -1,0 +1,11 @@
+# Gradle
+.gradle/
+build/
+
+# Runtime output of the archiveRuns batch job
+archive/
+
+# IDEs
+.idea/
+*.iml
+.DS_Store

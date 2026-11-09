@@ -1,0 +1,19 @@
+# Local infrastructure for development: docker compose up -d
+# The passwords here are for a throw-away local database only.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: schedkeel
+      POSTGRES_USER: schedkeel
+      POSTGRES_PASSWORD: schedkeel
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+  kafka:
+    image: apache/kafka:4.1.1
+    ports:
+      - "9092:9092"

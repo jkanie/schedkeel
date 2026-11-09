@@ -1,0 +1,16 @@
+schedkeel:
+  instance-id: test-instance
+  scheduler:
+    enabled: false
+  execution:
+    enabled: false
+  archive:
+    directory: build/test-archive
+  security:
+    users:
+      - username: admin
+        password: admin-test-password
+        roles: [ADMIN]
+      - username: viewer
+        password: viewer-test-password
+        roles: [VIEWER]

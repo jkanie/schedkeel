@@ -1,0 +1,16 @@
+[versions]
+spring-boot = "4.1.2"
+spring-modulith = "2.1.2"
+spring-shell = "4.0.3"
+asciidoctor = "4.0.5"
+spotless = "8.11.0"
+
+[libraries]
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
+spring-shell-bom = { module = "org.springframework.shell:spring-shell-dependencies", version.ref = "spring-shell" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+asciidoctor = { id = "org.asciidoctor.jvm.convert", version.ref = "asciidoctor" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

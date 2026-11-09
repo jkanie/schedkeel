@@ -1,0 +1,11 @@
+spring:
+  main:
+    banner-mode: off
+    web-application-type: none
+logging:
+  level:
+    root: warn
+schedkeel:
+  url: ${SCHEDKEEL_URL:http://localhost:8080}
+  user: ${SCHEDKEEL_USER:admin}
+  password: ${SCHEDKEEL_PASSWORD:}

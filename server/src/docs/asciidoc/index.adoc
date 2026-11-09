@@ -1,0 +1,58 @@
+= schedkeel API
+:toc: left
+:toclevels: 2
+:sectanchors:
+
+Every example on this page comes from a test that ran against PostgreSQL,
+Redis and Kafka. When the API changes, the build regenerates this page.
+
+The API speaks HAL (`application/hal+json`). Start at `GET /api` and follow
+links. Errors are problem details (`application/problem+json`, RFC 9457).
+
+== Sign-in
+
+Scripts and the CLI send HTTP Basic credentials. The dashboard posts a form
+to `/api/login`, then keeps the `SESSION` cookie (stored in Redis). VIEWER may
+read. ADMIN may also change.
+
+== Jobs
+
+=== Create a job
+
+include::{snippets}/create-job/http-request.adoc[]
+
+include::{snippets}/create-job/request-fields.adoc[]
+
+include::{snippets}/create-job/http-response.adoc[]
+
+include::{snippets}/create-job/links.adoc[]
+
+=== List jobs
+
+include::{snippets}/list-jobs/curl-request.adoc[]
+
+include::{snippets}/list-jobs/http-response.adoc[]
+
+=== Job history
+
+Every create, change, pause and delete keeps a revision, newest first.
+
+include::{snippets}/job-history/http-response.adoc[]
+
+include::{snippets}/job-history/response-fields.adoc[]
+
+== Runs
+
+=== Run a job now
+
+include::{snippets}/trigger-run/http-request.adoc[]
+
+include::{snippets}/trigger-run/http-response.adoc[]
+
+=== List runs
+
+include::{snippets}/list-runs/http-request.adoc[]
+
+include::{snippets}/list-runs/query-parameters.adoc[]
+
+include::{snippets}/list-runs/http-response.adoc[]
