@@ -119,6 +119,11 @@ class JobCommands {
         });
     }
 
+    @Command(name = "run", group = "Runs", description = "Show 1 run with its output")
+    String run(@Argument(index = 0, description = "Run ID") long id) {
+        return call(() -> describeRun(client.run(id)));
+    }
+
     @Command(name = "history", group = "Jobs", description = "Show every saved version of a job")
     String history(@Argument(index = 0, description = "Job name") String name) {
         return call(() -> {
@@ -154,6 +159,31 @@ class JobCommands {
                 "updatedAt",
                 "updatedBy")) {
             out.append(String.format("%-20s %s%n", field, text(job, field)));
+        }
+        return out.toString().stripTrailing();
+    }
+
+    /** The fields of a run, 1 per line, then its output (an error message for a failed run) below them. */
+    static String describeRun(JsonNode run) {
+        StringBuilder out = new StringBuilder();
+        for (String field : List.of(
+                "id",
+                "jobName",
+                "status",
+                "trigger",
+                "attempt",
+                "scheduledFor",
+                "notBefore",
+                "startedAt",
+                "finishedAt",
+                "owner")) {
+            out.append(String.format("%-20s %s%n", field, text(run, field)));
+        }
+        String output = text(run, "output");
+        if (output.contains("\n")) {
+            out.append("output\n").append(output.stripTrailing());
+        } else {
+            out.append(String.format("%-20s %s", "output", output));
         }
         return out.toString().stripTrailing();
     }

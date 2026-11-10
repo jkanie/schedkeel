@@ -76,6 +76,10 @@ class SchedkeelClient {
         return embedded(page, "runs");
     }
 
+    JsonNode run(long id) {
+        return http.get().uri("/api/runs/{id}", id).retrieve().body(JsonNode.class);
+    }
+
     List<JsonNode> history(String name) {
         return embedded(
                 http.get().uri("/api/jobs/{name}/history", name).retrieve().body(JsonNode.class), "revisions");

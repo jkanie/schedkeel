@@ -157,7 +157,7 @@ archive-runs  0 0 3 * * *  America/Whitehorse  BATCH  true     archiveRuns
 health-check  0 * * * * *  UTC                 HTTP   true     http://localhost:8080/actuator/health
 ```
 
-Other commands: `job NAME`, `pause NAME`, `resume NAME`, `delete NAME`.
+Other commands: `job NAME`, `run ID` (1 run with its output, such as the error of a failed run), `pause NAME`, `resume NAME`, `delete NAME`.
 
 ### API
 
@@ -186,7 +186,7 @@ Errors come back as problem details (`application/problem+json`), for example `{
 ## Tests
 
 ```sh
-./gradlew build                  # Java: format check, compile with warnings as errors, 92 tests
+./gradlew build                  # Java: format check, compile with warnings as errors, 95 tests
 cd dashboard && npm test         # dashboard: 29 tests
 ```
 
