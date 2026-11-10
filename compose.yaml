@@ -21,3 +21,8 @@ services:
     image: rabbitmq:4.1-alpine
     ports:
       - "5672:5672"
+  pulsar:
+    image: apachepulsar/pulsar:4.2.5
+    command: bin/pulsar standalone
+    ports:
+      - "6650:6650"

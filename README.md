@@ -6,7 +6,7 @@ A distributed job scheduler on Spring Boot 4. You define jobs with a cron expres
 
 ## What it does
 
-- Runs 5 kinds of job: HTTP calls, Kafka messages, RabbitMQ messages, Spring Batch jobs, log lines (for smoke tests). A RabbitMQ job waits for the broker's confirm and fails when its message reaches no queue.
+- Runs 6 kinds of job: HTTP calls, Kafka messages, RabbitMQ messages, Apache Pulsar messages, Spring Batch jobs, log lines (for smoke tests). A RabbitMQ job waits for the broker's confirm and fails when its message reaches no queue. A Pulsar job waits until the broker has stored its message.
 - Reads 6-field cron expressions (seconds first) in any time zone, so `0 30 2 * * *` in `America/Toronto` fires at 2:30 local time all year. A fire time that a daylight-saving change removes is skipped.
 - Queues 1 run after an outage, not 1 run per missed slot.
 - Retries a failed run up to 10 times. The wait doubles after each failure, from a base you choose, up to 1 hour.
@@ -22,7 +22,7 @@ A distributed job scheduler on Spring Boot 4. You define jobs with a cron expres
 
 ## Who it is for
 
-Teams that run cron jobs on several servers today and want 1 place to see what ran, what failed, who changed a schedule. It is also a working reference for 16 Spring projects in 1 code base, each doing a real job, with tests against real PostgreSQL, Redis, Kafka.
+Teams that run cron jobs on several servers today and want 1 place to see what ran, what failed, who changed a schedule. It is also a working reference for 17 Spring projects in 1 code base, each doing a real job, with tests against real PostgreSQL, Redis, Kafka.
 
 ## Spring projects in use
 
@@ -40,12 +40,13 @@ Teams that run cron jobs on several servers today and want 1 place to see what r
 | Spring Batch 6.0.6 | `housekeeping` | The `archiveRuns` job: a chunk step to CSV, then a delete step |
 | Spring for Apache Kafka 4.1.2 | `trigger`, `notify`, `execution` | Trigger topic listener, run-events publisher, Kafka jobs |
 | Spring AMQP 4.1.2 | `trigger`, `execution` | Trigger queue listener, RabbitMQ jobs with publisher confirms and returns |
+| Spring for Apache Pulsar 2.0.8 | `execution` | Pulsar jobs through `PulsarTemplate`, keyed by the job name (Pulsar client 4.2.5) |
 | Spring HATEOAS 3.1.3 | `job`, `run`, `web` | HAL responses with links such as `pause`, `resume`, `trigger` |
 | Spring REST Docs 4.0.2 | tests | API documentation built from the integration tests |
 | Spring Shell 4.0.3 | `cli` | The `schedkeel` terminal client |
 | Micrometer 1.17.2 | `execution` | `schedkeel.run.duration` timer and `schedkeel.runs.queued` gauge for Prometheus |
 
-[ROADMAP.md](ROADMAP.md) plans 27 more steps, each bringing in another Spring project, from Spring for Apache Pulsar to Spring Initializr.
+[ROADMAP.md](ROADMAP.md) plans 26 more steps, each bringing in another Spring project, from Spring Integration to Spring Initializr.
 
 ## How it fits together
 
@@ -61,9 +62,9 @@ Teams that run cron jobs on several servers today and want 1 place to see what r
    |  housekeeping: archiveRuns batch job     notify: run -> Kafka     web: API root, dashboard |
    +--------------------------------------------------------------------------------------------+
           |                          |                          |                          |
-     PostgreSQL                    Redis                      Kafka                    RabbitMQ
-  jobs, history, runs,        leader lease,           triggers, run events,      triggers, AMQP jobs
-  batch metadata, event log   sessions                KAFKA jobs
+     PostgreSQL                    Redis                      Kafka                    RabbitMQ          Pulsar
+  jobs, history, runs,        leader lease,           triggers, run events,      triggers,         PULSAR jobs
+  batch metadata, event log   sessions                KAFKA jobs                 AMQP jobs
 ```
 
 Each top-level package under `server/src/main/java/io/github/jkanie/schedkeel` is a Spring Modulith module. `ModularityTests` fails the build when a module reaches into another module's internals, and writes PlantUML diagrams to `server/build/spring-modulith-docs`.
@@ -71,7 +72,7 @@ Each top-level package under `server/src/main/java/io/github/jkanie/schedkeel` i
 ## Built with
 
 - Java 21 (CI also runs on Java 25), Gradle 9.8.2 with the Kotlin DSL and a version catalogue.
-- PostgreSQL 17, Redis 8, Apache Kafka 4.1, RabbitMQ 4.1 (Docker images for local work and for tests).
+- PostgreSQL 17, Redis 8, Apache Kafka 4.1, RabbitMQ 4.1, Apache Pulsar 4.2.5 (Docker images for local work and for tests).
 - Hibernate 7.4.13 with Envers, Flyway 12.4.0 migrations.
 - Angular 22.2 (stand-alone components, signals, no zone.js), TypeScript 6.0.
 - Tests: JUnit 5, AssertJ, Testcontainers 2.0.5, Spring Modulith test support, Vitest 5.1 for the dashboard.
@@ -81,7 +82,7 @@ Each top-level package under `server/src/main/java/io/github/jkanie/schedkeel` i
 
 You need Java 21 or newer, Docker, Node.js 22 (for the dashboard).
 
-Start PostgreSQL, Redis, Kafka, RabbitMQ:
+Start PostgreSQL, Redis, Kafka, RabbitMQ, Pulsar:
 
 ```sh
 docker compose up -d
@@ -120,6 +121,7 @@ Then open http://localhost:4200.
 | `SCHEDKEEL_KAFKA_SERVERS` | `localhost:9092` | Kafka bootstrap servers |
 | `SCHEDKEEL_RABBITMQ_ADDRESSES` | `localhost:5672` | RabbitMQ host and port |
 | `SCHEDKEEL_RABBITMQ_USER`, `SCHEDKEEL_RABBITMQ_PASSWORD` | `guest`, `guest` | The default user of the `rabbitmq` Docker image in `compose.yaml`, for local work only |
+| `SCHEDKEEL_PULSAR_URL` | `pulsar://localhost:6650` | Pulsar broker for `PULSAR` jobs. The server starts without a broker, and only a `PULSAR` run needs one. |
 
 Other settings live under `schedkeel.*` in `server/src/main/resources/application.yml`. For example, `schedkeel.execution.http.allowed-hosts` limits which hosts HTTP jobs may call, and `schedkeel.archive.retention-days` (default 30) sets how long finished runs stay in the database.
 
@@ -169,11 +171,12 @@ curl -u admin:choose-one -H 'Content-Type: application/json' http://localhost:80
 
 Errors come back as problem details (`application/problem+json`), for example `{"status": 400, "detail": "'0 2 * * *' is not a valid cron expression. Use 6 fields: ..."}`.
 
-### Kafka and RabbitMQ
+### Kafka, RabbitMQ, Pulsar
 
 - Send a job name to the Kafka topic `schedkeel.triggers` to queue a run of that job.
 - Or send it to the RabbitMQ queue `schedkeel.triggers` (the server declares the queue at start-up). The run's trigger is then `AMQP`.
 - An `AMQP` job publishes its payload to the target `exchange/routing-key`, for example `billing/invoice.due`. An empty exchange (`/orders`) is RabbitMQ's default exchange, which routes to the queue named by the key. The run fails when the broker refuses the message (an exchange that does not exist) or returns it (no queue bound to that key), because a dropped message would otherwise look like success.
+- A `PULSAR` job sends its payload to the target topic, with the job name as the message key and the properties `x-schedkeel-job` and `x-schedkeel-run`. The target takes 3 forms: a short name (`orders` means `persistent://public/default/orders`), `tenant/namespace/topic` (a persistent topic there), a full `persistent://` or `non-persistent://` name (used as it is). The run waits up to the job's timeout for the broker to store the message, and fails when the broker refuses it, as for a tenant that does not exist.
 - Read `schedkeel.run-events` for every finished run, keyed by job name: `{"runId":7,"jobId":2,"jobName":"health-check","status":"SUCCEEDED","trigger":"SCHEDULE","attempt":1,...}`.
 
 ### Metrics
@@ -183,11 +186,11 @@ Errors come back as problem details (`application/problem+json`), for example `{
 ## Tests
 
 ```sh
-./gradlew build                  # Java: format check, compile with warnings as errors, 87 tests
-cd dashboard && npm test         # dashboard: 28 tests
+./gradlew build                  # Java: format check, compile with warnings as errors, 92 tests
+cd dashboard && npm test         # dashboard: 29 tests
 ```
 
-The server's integration tests start PostgreSQL 17, Redis 8, Kafka 4.1, RabbitMQ 4.1 in Docker through Testcontainers, once per test run. A test clock stands still until a test moves it, so schedule tests do not wait for real time. Among them:
+The server's integration tests start PostgreSQL 17, Redis 8, Kafka 4.1, RabbitMQ 4.1, Pulsar 4.2.5 in Docker through Testcontainers, once per test run. A test clock stands still until a test moves it, so schedule tests do not wait for real time. Among them:
 
 - 8 workers claim 200 queued runs at the same time, and no run is claimed twice.
 - 2 runs left `RUNNING` by a stopped instance fail 1 minute past their timeout, not sooner, and each gets 1 retry.
@@ -198,6 +201,7 @@ The server's integration tests start PostgreSQL 17, Redis 8, Kafka 4.1, RabbitMQ
 - The `archiveRuns` batch job writes old runs to CSV, deletes them, leaves recent runs.
 - A message on the trigger topic queues a run. Every finished run reaches the run-events topic.
 - A RabbitMQ job's message reaches the bound queue with its payload and headers. A message that reaches no queue fails the run with the broker's `312 NO_ROUTE`, and an exchange that does not exist fails it too. A job name on the RabbitMQ trigger queue queues a run.
+- A Pulsar job's message reaches a subscriber with its payload, the job name as key, the job and run properties. A short topic name lands in `public/default`, and a tenant that does not exist fails the run.
 
 ## Project layout
 
@@ -205,7 +209,7 @@ The server's integration tests start PostgreSQL 17, Redis 8, Kafka 4.1, RabbitMQ
 server/      Spring Boot application (1 Spring Modulith module per package)
 cli/         Spring Shell terminal client
 dashboard/   Angular dashboard (built into the server jar with -PwithDashboard)
-compose.yaml PostgreSQL, Redis, Kafka, RabbitMQ for local work
+compose.yaml PostgreSQL, Redis, Kafka, RabbitMQ, Pulsar for local work
 ```
 
 ## Licence

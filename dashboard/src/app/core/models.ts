@@ -1,6 +1,6 @@
 /** Shapes of the schedkeel API (HAL). Only the fields the dashboard uses. */
 
-export type JobType = 'LOG' | 'HTTP' | 'KAFKA' | 'AMQP' | 'BATCH';
+export type JobType = 'LOG' | 'HTTP' | 'KAFKA' | 'AMQP' | 'PULSAR' | 'BATCH';
 export type Concurrency = 'ALLOW' | 'FORBID';
 export type RunStatus = 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'SKIPPED';
 

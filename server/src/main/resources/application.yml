@@ -30,6 +30,9 @@ spring:
     publisher-returns: true
     template:
       mandatory: true
+  pulsar:
+    client:
+      service-url: ${SCHEDKEEL_PULSAR_URL:pulsar://localhost:6650}
   batch:
     job:
       enabled: false

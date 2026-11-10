@@ -14,6 +14,11 @@ public enum JobType {
      * the default exchange, which routes to the queue named by the key.
      */
     AMQP,
+    /**
+     * Sends the payload to the target Apache Pulsar topic, keyed by the job
+     * name. A short name ({@code orders}) is {@code persistent://public/default/orders}.
+     */
+    PULSAR,
     /** Starts the Spring Batch job named by the target. */
     BATCH
 }

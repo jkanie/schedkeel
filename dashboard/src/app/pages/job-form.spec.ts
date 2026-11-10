@@ -85,6 +85,17 @@ describe('JobForm', () => {
     expect(target.placeholder).toBe('exchange/routing-key, for example billing/invoice.due');
   });
 
+  it('offers the PULSAR type with a topic hint', async () => {
+    const { fixture, el } = setUp();
+    const select = el.querySelector('[formcontrolname="type"]') as HTMLSelectElement;
+    expect(Array.from(select.options).map((o) => o.value)).toContain('PULSAR');
+    select.value = 'PULSAR';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    const target = el.querySelector('[formcontrolname="target"]') as HTMLInputElement;
+    expect(target.placeholder).toBe('Topic, for example orders or persistent://tenant/ns/orders');
+  });
+
   it('shows the server problem detail when creation fails', async () => {
     const { fixture, http, el } = setUp();
     type(el, 'name', 'ping');

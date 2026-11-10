@@ -7,9 +7,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.pulsar.PulsarContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
+import org.testcontainers.utility.DockerImageName;
 
-/** PostgreSQL, Redis, Kafka, RabbitMQ in containers, plus a clock that tests move by hand. */
+/** PostgreSQL, Redis, Kafka, RabbitMQ, Pulsar in containers, plus a clock that tests move by hand. */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestInfrastructure {
 
@@ -35,6 +37,13 @@ public class TestInfrastructure {
     @ServiceConnection
     RabbitMQContainer rabbit() {
         return new RabbitMQContainer("rabbitmq:4.1-alpine");
+    }
+
+    @Bean
+    @ServiceConnection
+    PulsarContainer pulsar() {
+        // The broker release matches the Pulsar client that Spring Boot 4.1.2 manages (4.2.5).
+        return new PulsarContainer(DockerImageName.parse("apachepulsar/pulsar:4.2.5"));
     }
 
     @Bean

@@ -21,6 +21,7 @@ const TARGET_HINT: Record<JobType, string> = {
   HTTP: 'URL to call, for example https://example.org/hook',
   KAFKA: 'Topic to publish to',
   AMQP: 'exchange/routing-key, for example billing/invoice.due',
+  PULSAR: 'Topic, for example orders or persistent://tenant/ns/orders',
   BATCH: 'Spring Batch job name, for example archiveRuns',
 };
 
@@ -57,6 +58,7 @@ const TARGET_HINT: Record<JobType, string> = {
           <option>HTTP</option>
           <option>KAFKA</option>
           <option>AMQP</option>
+          <option>PULSAR</option>
           <option>BATCH</option>
         </select>
       </label>
