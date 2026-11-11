@@ -82,7 +82,7 @@ class JobCommandsTests {
         server.expect(requestTo("http://sk.test/api/jobs/ping/runs"))
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withStatus(HttpStatus.CREATED).contentType(HAL).body("{\"id\": 42}"));
-        assertThat(commands.trigger("ping")).isEqualTo("Queued run 42 of ping.");
+        assertThat(commands.trigger("ping", null)).isEqualTo("Queued run 42 of ping.");
     }
 
     @Test
@@ -172,5 +172,43 @@ class JobCommandsTests {
                         .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                         .body("{\"status\": 404, \"detail\": \"No run has the id 99.\"}"));
         assertThat(commands.run(99)).isEqualTo("Error 404: No run has the id 99.");
+    }
+
+    @Test
+    void triggerWaitsForTheRunToEnd() {
+        int[] pauses = {0};
+        commands.pause(() -> pauses[0]++);
+        server.expect(requestTo("http://sk.test/api/jobs/ping/runs"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.CREATED).contentType(HAL).body("""
+                        {"id": 42, "status": "QUEUED"}"""));
+        server.expect(requestTo("http://sk.test/api/runs/42")).andRespond(withSuccess("""
+                        {"id": 42, "status": "RUNNING"}""", HAL));
+        server.expect(requestTo("http://sk.test/api/runs/42")).andRespond(withSuccess("""
+                        {"id": 42, "jobName": "ping", "status": "SUCCEEDED", "trigger": "MANUAL", "attempt": 1,
+                         "output": "HTTP 200"}""", HAL));
+        String out = commands.trigger("ping", 30);
+        assertThat(out.lines()).startsWith("Queued run 42 of ping.", "id                   42");
+        assertThat(out.lines()).contains("status               SUCCEEDED", "output               HTTP 200");
+        assertThat(pauses[0]).isEqualTo(2);
+    }
+
+    @Test
+    void triggerStopsWaitingAtTheLimit() {
+        commands.pause(() -> {});
+        server.expect(requestTo("http://sk.test/api/jobs/ping/runs"))
+                .andRespond(
+                        withStatus(HttpStatus.CREATED).contentType(HAL).body("{\"id\": 42, \"status\": \"QUEUED\"}"));
+        server.expect(requestTo("http://sk.test/api/runs/42"))
+                .andRespond(withSuccess("{\"id\": 42, \"status\": \"QUEUED\"}", HAL));
+        server.expect(requestTo("http://sk.test/api/runs/42"))
+                .andRespond(withSuccess("{\"id\": 42, \"status\": \"RUNNING\"}", HAL));
+        assertThat(commands.trigger("ping", 2))
+                .isEqualTo("Queued run 42 of ping.\nStill RUNNING after 2 seconds. Run: schedkeel run 42");
+    }
+
+    @Test
+    void triggerRefusesAWaitBelow1() {
+        assertThat(commands.trigger("ping", 0)).isEqualTo("Error: --wait needs 1 or more seconds.");
     }
 }

@@ -17,10 +17,20 @@ import tools.jackson.databind.JsonNode;
 @Component
 class JobCommands {
 
+    /** Waits between 2 looks at a run, while trigger --wait follows it. Tests replace it. */
+    interface Pause {
+        void second();
+    }
+
     private final SchedkeelClient client;
+    private Pause pause = JobCommands::sleepOneSecond;
 
     JobCommands(SchedkeelClient client) {
         this.client = client;
+    }
+
+    void pause(Pause pause) {
+        this.pause = pause;
     }
 
     @Command(name = "jobs", group = "Jobs", description = "List every job")
@@ -67,11 +77,40 @@ class JobCommands {
     }
 
     @Command(name = "trigger", group = "Runs", description = "Run a job now")
-    String trigger(@Argument(index = 0, description = "Job name") String name) {
+    String trigger(
+            @Argument(index = 0, description = "Job name") String name,
+            @Option(longName = "wait", description = "Wait up to this many seconds for the run to end, then show it")
+                    Integer wait) {
+        if (wait != null && wait < 1) {
+            return "Error: --wait needs 1 or more seconds.";
+        }
         return call(() -> {
             JsonNode run = client.trigger(name);
-            return "Queued run " + text(run, "id") + " of " + name + ".";
+            String queued = "Queued run " + text(run, "id") + " of " + name + ".";
+            if (wait == null) {
+                return queued;
+            }
+            long id = run.get("id").asLong();
+            String status = text(run, "status");
+            for (int second = 0; second < wait; second++) {
+                pause.second();
+                JsonNode now = client.run(id);
+                status = text(now, "status");
+                if (!status.equals("QUEUED") && !status.equals("RUNNING")) {
+                    return queued + "\n" + describeRun(now);
+                }
+            }
+            return queued + "\nStill " + status + " after " + wait + " seconds. Run: schedkeel run " + id;
         });
+    }
+
+    private static void sleepOneSecond() {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while waiting for the run", e);
+        }
     }
 
     @Command(name = "pause", group = "Jobs", description = "Stop a job's schedule")
