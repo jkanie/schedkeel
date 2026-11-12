@@ -161,6 +161,8 @@ Other commands: `job NAME`, `run ID` (1 run with its output, such as the error o
 
 `schedkeel trigger health-check --wait 60` queues a run, looks at it once a second for up to 60 seconds, then prints the finished run as `run ID` does (status, times, output). A run that is still queued or running at the limit is named with its status and its ID. The wait follows that 1 run, not the re-tries that a failed run may queue.
 
+`schedkeel update health-check --cron "0 */5 * * * *" --retries 0` reads the job, changes only the options given (`--cron`, `--zone`, `--target`, `--payload`, `--retries`, `--description`), then sends the whole job back with `PUT /api/jobs/{name}`. Every other field keeps its value, the job's on or off state among them. The change shows in `history NAME` like 1 made on the dashboard.
+
 ### API
 
 Start at `GET /api` and follow the links. `./gradlew :server:asciidoctor` writes the API guide, with every example taken from a test run, to `server/build/docs/asciidoc/index.html`. CI keeps the same file as the `api-docs` artifact of each run.

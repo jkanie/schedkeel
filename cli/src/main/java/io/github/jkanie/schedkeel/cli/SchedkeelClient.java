@@ -43,6 +43,15 @@ class SchedkeelClient {
                 .body(JsonNode.class);
     }
 
+    JsonNode update(String name, Map<String, Object> fields) {
+        return http.put()
+                .uri("/api/jobs/{name}", name)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new LinkedHashMap<>(fields))
+                .retrieve()
+                .body(JsonNode.class);
+    }
+
     JsonNode pause(String name) {
         return http.post().uri("/api/jobs/{name}/pause", name).retrieve().body(JsonNode.class);
     }

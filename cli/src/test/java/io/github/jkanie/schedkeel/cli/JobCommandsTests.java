@@ -62,6 +62,44 @@ class JobCommandsTests {
     }
 
     @Test
+    void updateChangesOnlyTheFieldsGivenAndKeepsTheRest() {
+        server.expect(requestTo("http://sk.test/api/jobs/ping"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {"name": "ping", "description": null, "cron": "0 * * * * *", "timeZone": "UTC",
+                         "type": "HTTP", "target": "https://example.org", "payload": "{}", "enabled": false,
+                         "concurrency": "ALLOW", "maxRetries": 2, "retryBackoffSeconds": 60, "timeoutSeconds": 90,
+                         "createdAt": "2027-01-01T00:00:00Z", "createdBy": "admin",
+                         "updatedAt": "2027-01-02T00:00:00Z", "updatedBy": "admin",
+                         "_links": {"self": {"href": "http://sk.test/api/jobs/ping"}}}
+                        """, HAL));
+        server.expect(requestTo("http://sk.test/api/jobs/ping"))
+                .andExpect(method(HttpMethod.PUT))
+                .andExpect(content().json("""
+                        {"name": "ping", "cron": "0 */5 * * * *", "timeZone": "America/Whitehorse",
+                         "type": "HTTP", "target": "https://example.org", "payload": "{}", "enabled": false,
+                         "concurrency": "ALLOW", "maxRetries": 0, "retryBackoffSeconds": 60, "timeoutSeconds": 90}
+                        """, JsonCompareMode.STRICT))
+                .andRespond(withSuccess("{\"name\": \"ping\", \"cron\": \"0 */5 * * * *\"}", HAL));
+
+        String out = commands.update("ping", "0 */5 * * * *", "America/Whitehorse", null, "", 0, null);
+        assertThat(out).startsWith("Updated.").contains("cron                 0 */5 * * * *");
+    }
+
+    @Test
+    void updateNeedsAChangeAndReportsAMissingJob() {
+        assertThat(commands.update("ping", null, " ", null, null, null, ""))
+                .isEqualTo("Error: give 1 or more of --cron, --zone, --target, --payload, --retries, --description.");
+
+        server.expect(requestTo("http://sk.test/api/jobs/missing"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                        .body("{\"detail\": \"No job is named 'missing'.\"}"));
+        assertThat(commands.update("missing", "0 0 * * * *", null, null, null, null, null))
+                .isEqualTo("Error 404: No job is named 'missing'.");
+    }
+
+    @Test
     void createsAJobWithOnlyTheFieldsGiven() {
         server.expect(requestTo("http://sk.test/api/jobs"))
                 .andExpect(method(HttpMethod.POST))

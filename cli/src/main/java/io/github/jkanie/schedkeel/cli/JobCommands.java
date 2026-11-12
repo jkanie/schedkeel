@@ -76,6 +76,54 @@ class JobCommands {
         return call(() -> "Created.\n" + describe(client.create(fields)));
     }
 
+    /** The fields of a job that PUT /api/jobs/{name} takes. update copies them from the job as it is. */
+    static final List<String> REQUEST_FIELDS = List.of(
+            "name",
+            "description",
+            "cron",
+            "timeZone",
+            "type",
+            "target",
+            "payload",
+            "enabled",
+            "concurrency",
+            "maxRetries",
+            "retryBackoffSeconds",
+            "timeoutSeconds");
+
+    @Command(name = "update", group = "Jobs", description = "Change some fields of a job, keep the rest")
+    String update(
+            @Argument(index = 0, description = "Job name") String name,
+            @Option(longName = "cron", description = "6-field cron, in quotes") String cron,
+            @Option(longName = "zone", description = "Time zone, for example America/Whitehorse") String zone,
+            @Option(longName = "target", description = "URL, topic or batch job name") String target,
+            @Option(longName = "payload", description = "Body, message or log text") String payload,
+            @Option(longName = "retries", description = "Retries after a failed first attempt") Integer retries,
+            @Option(longName = "description", description = "What the job is for") String description) {
+        Map<String, Object> changes = new LinkedHashMap<>();
+        putIfSet(changes, "cron", cron);
+        putIfSet(changes, "timeZone", zone);
+        putIfSet(changes, "target", target);
+        putIfSet(changes, "payload", payload);
+        putIfSet(changes, "maxRetries", retries);
+        putIfSet(changes, "description", description);
+        if (changes.isEmpty()) {
+            return "Error: give 1 or more of --cron, --zone, --target, --payload, --retries, --description.";
+        }
+        return call(() -> {
+            JsonNode job = client.job(name);
+            Map<String, Object> fields = new LinkedHashMap<>();
+            for (String field : REQUEST_FIELDS) {
+                JsonNode value = job.path(field);
+                if (!value.isMissingNode() && !value.isNull()) {
+                    fields.put(field, value);
+                }
+            }
+            fields.putAll(changes);
+            return "Updated.\n" + describe(client.update(name, fields));
+        });
+    }
+
     @Command(name = "trigger", group = "Runs", description = "Run a job now")
     String trigger(
             @Argument(index = 0, description = "Job name") String name,
