@@ -1,10 +1,16 @@
 package io.github.jkanie.schedkeel.cli;
 
+import java.time.Clock;
+import java.time.DateTimeException;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
+import org.springframework.scheduling.support.CronExpression;
 import org.springframework.shell.core.command.annotation.Argument;
 import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
@@ -24,6 +30,7 @@ class JobCommands {
 
     private final SchedkeelClient client;
     private Pause pause = JobCommands::sleepOneSecond;
+    private Clock clock = Clock.systemUTC();
 
     JobCommands(SchedkeelClient client) {
         this.client = client;
@@ -31,6 +38,53 @@ class JobCommands {
 
     void pause(Pause pause) {
         this.pause = pause;
+    }
+
+    void clock(Clock clock) {
+        this.clock = clock;
+    }
+
+    private static final DateTimeFormatter FIRE =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss xxx (EEE)", Locale.ROOT);
+
+    @Command(name = "next", group = "Jobs", description = "Show the next fire times of a job")
+    String next(
+            @Argument(index = 0, description = "Job name") String name,
+            @Option(longName = "count", defaultValue = "5", description = "How many, 1 to 100") int count) {
+        if (count < 1 || count > 100) {
+            return "Error: --count must be from 1 to 100.";
+        }
+        return call(() -> {
+            JsonNode job = client.job(name);
+            String cron = text(job, "cron");
+            String zone = text(job, "timeZone");
+            CronExpression expression;
+            ZoneId zoneId;
+            try {
+                expression = CronExpression.parse(cron);
+                zoneId = ZoneId.of(zone);
+            } catch (IllegalArgumentException | DateTimeException e) {
+                return "Error: the job's cron or zone cannot be read here: " + e.getMessage();
+            }
+            StringBuilder out = new StringBuilder("Next fires of " + name + " (" + cron + ", " + zone + "):\n");
+            ZonedDateTime at = ZonedDateTime.now(clock).withZoneSameInstant(zoneId);
+            int shown = 0;
+            while (shown < count) {
+                at = expression.next(at);
+                if (at == null) {
+                    break;
+                }
+                out.append(FIRE.format(at)).append('\n');
+                shown++;
+            }
+            if (shown == 0) {
+                out.append("None. The cron never fires again.\n");
+            }
+            if (!job.path("enabled").asBoolean(true)) {
+                out.append("The job is paused, so none of these fires until resume NAME.\n");
+            }
+            return out.toString().stripTrailing();
+        });
     }
 
     @Command(name = "jobs", group = "Jobs", description = "List every job")

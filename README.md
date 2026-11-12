@@ -163,6 +163,8 @@ Other commands: `job NAME`, `run ID` (1 run with its output, such as the error o
 
 `schedkeel update health-check --cron "0 */5 * * * *" --retries 0` reads the job, changes only the options given (`--cron`, `--zone`, `--target`, `--payload`, `--retries`, `--description`), then sends the whole job back with `PUT /api/jobs/{name}`. Every other field keeps its value, the job's on or off state among them. The change shows in `history NAME` like 1 made on the dashboard.
 
+`schedkeel next health-check --count 3` lists the next 3 fire times of the job (5 by default, up to 100), worked out from now with the job's cron in its own time zone, the way the server reads them. Each line shows the zone's offset, so a fire that a clock change moves shows where it lands. A paused job gets a line that says none of them fires until `resume NAME`.
+
 ### API
 
 Start at `GET /api` and follow the links. `./gradlew :server:asciidoctor` writes the API guide, with every example taken from a test run, to `server/build/docs/asciidoc/index.html`. CI keeps the same file as the `api-docs` artifact of each run.

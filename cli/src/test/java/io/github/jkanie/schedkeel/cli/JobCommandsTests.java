@@ -10,6 +10,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.net.ConnectException;
 import java.net.URI;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +62,44 @@ class JobCommandsTests {
     void saysSoWhenThereAreNoJobs() {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("{}", HAL));
         assertThat(commands.jobs()).startsWith("No jobs yet.");
+    }
+
+    @Test
+    void nextShowsFireTimesInTheJobsZoneAcrossAClockChange() {
+        // 2027-03-14 01:30 in New York, 30 minutes before clocks go forward 1 hour,
+        // so 02:15 does not happen that day.
+        commands.clock(Clock.fixed(Instant.parse("2027-03-14T06:30:00Z"), ZoneOffset.UTC));
+        server.expect(requestTo("http://sk.test/api/jobs/hourly")).andRespond(withSuccess("""
+                        {"name": "hourly", "cron": "0 15 * * * *", "timeZone": "America/New_York", "enabled": false}
+                        """, HAL));
+
+        assertThat(commands.next("hourly", 3)).isEqualTo("""
+                Next fires of hourly (0 15 * * * *, America/New_York):
+                2027-03-14 03:15:00 -04:00 (Sun)
+                2027-03-14 04:15:00 -04:00 (Sun)
+                2027-03-14 05:15:00 -04:00 (Sun)
+                The job is paused, so none of these fires until resume NAME.""");
+    }
+
+    @Test
+    void nextChecksTheCountAndReportsAMissingJob() {
+        assertThat(commands.next("ping", 0)).isEqualTo("Error: --count must be from 1 to 100.");
+        assertThat(commands.next("ping", 101)).isEqualTo("Error: --count must be from 1 to 100.");
+        server.expect(requestTo("http://sk.test/api/jobs/missing"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                        .body("{\"detail\": \"No job is named 'missing'.\"}"));
+        assertThat(commands.next("missing", 5)).isEqualTo("Error 404: No job is named 'missing'.");
+    }
+
+    @Test
+    void nextSaysSoWhenTheCronNeverFires() {
+        // 30 February never comes.
+        server.expect(requestTo("http://sk.test/api/jobs/never")).andRespond(withSuccess("""
+                        {"name": "never", "cron": "0 0 0 30 2 *", "timeZone": "UTC", "enabled": true}
+                        """, HAL));
+        assertThat(commands.next("never", 5))
+                .isEqualTo("Next fires of never (0 0 0 30 2 *, UTC):\nNone. The cron never fires again.");
     }
 
     @Test
