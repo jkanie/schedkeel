@@ -1,5 +1,8 @@
 package io.github.jkanie.schedkeel.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.ZoneId;
@@ -17,7 +20,9 @@ import org.springframework.shell.core.command.annotation.Option;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientResponseException;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /** The shell commands. Each returns the text the shell prints. */
 @Component
@@ -165,17 +170,46 @@ class JobCommands {
             return "Error: give 1 or more of --cron, --zone, --target, --payload, --retries, --description.";
         }
         return call(() -> {
-            JsonNode job = client.job(name);
-            Map<String, Object> fields = new LinkedHashMap<>();
-            for (String field : REQUEST_FIELDS) {
-                JsonNode value = job.path(field);
-                if (!value.isMissingNode() && !value.isNull()) {
-                    fields.put(field, value);
-                }
-            }
+            Map<String, Object> fields = requestFields(client.job(name));
             fields.putAll(changes);
             return "Updated.\n" + describe(client.update(name, fields));
         });
+    }
+
+    /** The fields of job that PUT and POST /api/jobs take, in their order, leaving out nulls. */
+    private static Map<String, Object> requestFields(JsonNode job) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        for (String field : REQUEST_FIELDS) {
+            JsonNode value = job.path(field);
+            if (!value.isMissingNode() && !value.isNull()) {
+                fields.put(field, value);
+            }
+        }
+        return fields;
+    }
+
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
+    @Command(name = "export", group = "Jobs", description = "Print a job as JSON that import reads")
+    String export(@Argument(index = 0, description = "Job name") String name) {
+        return call(() -> JSON.writerWithDefaultPrettyPrinter().writeValueAsString(requestFields(client.job(name))));
+    }
+
+    @Command(name = "import", group = "Jobs", description = "Create a job from a file that export wrote")
+    String importJob(@Argument(index = 0, description = "JSON file") String file) {
+        JsonNode body;
+        try {
+            body = JSON.readTree(Files.readString(Path.of(file)));
+        } catch (IOException e) {
+            return "Error: cannot read " + file + ": " + e.getMessage();
+        } catch (JacksonException e) {
+            return "Error: " + file + " is not JSON: " + e.getOriginalMessage();
+        }
+        if (!body.isObject()) {
+            return "Error: " + file + " must hold 1 JSON object, as export writes it.";
+        }
+        Map<String, Object> fields = requestFields(body);
+        return call(() -> "Created.\n" + describe(client.create(fields)));
     }
 
     @Command(name = "trigger", group = "Runs", description = "Run a job now")

@@ -8,14 +8,18 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -100,6 +104,49 @@ class JobCommandsTests {
                         """, HAL));
         assertThat(commands.next("never", 5))
                 .isEqualTo("Next fires of never (0 0 0 30 2 *, UTC):\nNone. The cron never fires again.");
+    }
+
+    private static final String PING = """
+            {"name": "ping", "description": null, "cron": "0 * * * * *", "timeZone": "UTC",
+             "type": "HTTP", "target": "https://example.org", "payload": "{}", "enabled": false,
+             "concurrency": "ALLOW", "maxRetries": 2, "retryBackoffSeconds": 60, "timeoutSeconds": 90,
+             "createdAt": "2027-01-01T00:00:00Z", "createdBy": "admin",
+             "_links": {"self": {"href": "http://sk.test/api/jobs/ping"}}}
+            """;
+
+    @Test
+    void exportWritesWhatImportCreatesAgain(@TempDir Path dir) throws IOException {
+        // MockRestServiceServer takes every expectation before the 1st call.
+        server.expect(requestTo("http://sk.test/api/jobs/ping")).andRespond(withSuccess(PING, HAL));
+        server.expect(requestTo("http://sk.test/api/jobs"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"name": "ping-copy", "cron": "0 * * * * *", "timeZone": "UTC", "type": "HTTP",
+                         "target": "https://example.org", "payload": "{}", "enabled": false, "concurrency": "ALLOW",
+                         "maxRetries": 2, "retryBackoffSeconds": 60, "timeoutSeconds": 90}
+                        """, JsonCompareMode.STRICT))
+                .andRespond(withSuccess("{\"name\": \"ping-copy\"}", HAL));
+        String exported = commands.export("ping");
+        assertThat(exported)
+                .startsWith("{\n  \"name\" : \"ping\",\n  \"cron\"")
+                .doesNotContain("createdAt", "_links", "description");
+
+        Path file = dir.resolve("ping.json");
+        Files.writeString(file, exported.replace("\"ping\"", "\"ping-copy\""));
+        assertThat(commands.importJob(file.toString())).startsWith("Created.");
+    }
+
+    @Test
+    void importReportsABadFile(@TempDir Path dir) throws IOException {
+        Path missing = dir.resolve("missing.json");
+        assertThat(commands.importJob(missing.toString())).startsWith("Error: cannot read " + missing);
+        Path broken = dir.resolve("broken.json");
+        Files.writeString(broken, "{\"name\": ");
+        assertThat(commands.importJob(broken.toString())).startsWith("Error: " + broken + " is not JSON: ");
+        Path list = dir.resolve("list.json");
+        Files.writeString(list, "[]");
+        assertThat(commands.importJob(list.toString()))
+                .isEqualTo("Error: " + list + " must hold 1 JSON object, as export writes it.");
     }
 
     @Test

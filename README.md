@@ -165,6 +165,8 @@ Other commands: `job NAME`, `run ID` (1 run with its output, such as the error o
 
 `schedkeel next health-check --count 3` lists the next 3 fire times of the job (5 by default, up to 100), worked out from now with the job's cron in its own time zone, the way the server reads them. Each line shows the zone's offset, so a fire that a clock change moves shows where it lands. A paused job gets a line that says none of them fires until `resume NAME`.
 
+`schedkeel export health-check > health-check.json` prints the job as JSON, with only the 12 fields that the API takes to create a job (no times, no links). `schedkeel import health-check.json` creates a job from such a file, such as a copy on another server, or a new job after its name is changed in the file. A job that already has that name gets the server's error, and nothing changes.
+
 ### API
 
 Start at `GET /api` and follow the links. `./gradlew :server:asciidoctor` writes the API guide, with every example taken from a test run, to `server/build/docs/asciidoc/index.html`. CI keeps the same file as the `api-docs` artifact of each run.
