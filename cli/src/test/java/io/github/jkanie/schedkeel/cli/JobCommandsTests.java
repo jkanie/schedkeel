@@ -57,15 +57,33 @@ class JobCommandsTests {
                            "type": "HTTP", "enabled": true, "target": "https://example.org"}]}}
                         """, HAL));
 
-        assertThat(commands.jobs()).isEqualTo("""
+        assertThat(commands.jobs(null)).isEqualTo("""
                 NAME            CRON         ZONE  TYPE  ENABLED  TARGET
                 nightly-report  0 0 2 * * *  UTC   HTTP  true     https://example.org""");
     }
 
     @Test
+    void listsOnlyTheJobsOfATypeInAnyCase() {
+        String twoJobs = """
+                {"_embedded": {"jobs": [
+                  {"name": "archive-runs", "cron": "0 0 3 * * *", "timeZone": "UTC",
+                   "type": "BATCH", "enabled": true, "target": "archiveRuns"},
+                  {"name": "health-check", "cron": "0 * * * * *", "timeZone": "UTC",
+                   "type": "HTTP", "enabled": false, "target": "http://localhost:8080/actuator/health"}]}}
+                """;
+        server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(twoJobs, HAL));
+        server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(twoJobs, HAL));
+
+        assertThat(commands.jobs("http")).isEqualTo("""
+                NAME          CRON         ZONE  TYPE  ENABLED  TARGET
+                health-check  0 * * * * *  UTC   HTTP  false    http://localhost:8080/actuator/health""");
+        assertThat(commands.jobs("kafka")).isEqualTo("No KAFKA jobs.");
+    }
+
+    @Test
     void saysSoWhenThereAreNoJobs() {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("{}", HAL));
-        assertThat(commands.jobs()).startsWith("No jobs yet.");
+        assertThat(commands.jobs(null)).startsWith("No jobs yet.");
     }
 
     @Test
@@ -237,7 +255,7 @@ class JobCommandsTests {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(request -> {
             throw new ConnectException("Connection refused");
         });
-        assertThat(commands.jobs()).startsWith("Cannot reach the server.");
+        assertThat(commands.jobs(null)).startsWith("Cannot reach the server.");
     }
 
     @Test

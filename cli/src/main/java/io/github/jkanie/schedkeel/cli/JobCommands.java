@@ -92,11 +92,16 @@ class JobCommands {
         });
     }
 
-    @Command(name = "jobs", group = "Jobs", description = "List every job")
-    String jobs() {
+    @Command(name = "jobs", group = "Jobs", description = "List every job, or only the jobs of 1 type")
+    String jobs(@Option(longName = "type", description = "Only jobs of this type, such as HTTP") String type) {
         return call(() -> {
             Table table = new Table("NAME", "CRON", "ZONE", "TYPE", "ENABLED", "TARGET");
+            boolean any = false;
             for (JsonNode job : client.jobs()) {
+                any = true;
+                if (type != null && !text(job, "type").equalsIgnoreCase(type)) {
+                    continue;
+                }
                 table.row(
                         text(job, "name"),
                         text(job, "cron"),
@@ -105,7 +110,10 @@ class JobCommands {
                         text(job, "enabled"),
                         text(job, "target"));
             }
-            return table.render("No jobs yet. Create one with: create --name ... --cron ... --type ... --target ...");
+            return table.render(
+                    any && type != null
+                            ? "No " + type.toUpperCase(Locale.ROOT) + " jobs."
+                            : "No jobs yet. Create one with: create --name ... --cron ... --type ... --target ...");
         });
     }
 
