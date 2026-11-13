@@ -81,6 +81,15 @@ class JobCommandsTests {
     }
 
     @Test
+    void refusesARunsLimitTheServerWouldChange() {
+        // No request reaches the server: the expectations stay empty and verify() passes.
+        assertThat(commands.runs(null, null, 0)).isEqualTo("Error: --limit must be from 1 to 2000.");
+        assertThat(commands.runs(null, null, -5)).isEqualTo("Error: --limit must be from 1 to 2000.");
+        assertThat(commands.runs(null, null, 2001)).isEqualTo("Error: --limit must be from 1 to 2000.");
+        server.verify();
+    }
+
+    @Test
     void saysSoWhenThereAreNoJobs() {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("{}", HAL));
         assertThat(commands.jobs(null)).startsWith("No jobs yet.");

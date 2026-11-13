@@ -285,7 +285,12 @@ class JobCommands {
     String runs(
             @Option(longName = "job", description = "Only runs of this job") String job,
             @Option(longName = "status", description = "Only runs with this status") String status,
-            @Option(longName = "limit", defaultValue = "20", description = "How many") int limit) {
+            @Option(longName = "limit", defaultValue = "20", description = "How many, from 1 to 2000") int limit) {
+        // The server reads a page size below 1 as its default of 20 and cuts one above 2000 down to 2000, so the
+        // CLI says so instead of listing a different number of runs than was asked for.
+        if (limit < 1 || limit > 2000) {
+            return "Error: --limit must be from 1 to 2000.";
+        }
         return call(() -> {
             Table table = new Table("ID", "JOB", "STATUS", "TRIGGER", "ATTEMPT", "SCHEDULED", "FINISHED");
             for (JsonNode run : client.runs(job, status, limit)) {
