@@ -144,7 +144,7 @@ export SCHEDKEEL_URL=http://localhost:8080 SCHEDKEEL_USER=admin SCHEDKEEL_PASSWO
 alias schedkeel='java -jar cli/build/libs/cli-0.1.0-SNAPSHOT.jar'
 
 schedkeel create --name health-check --cron "0 * * * * *" --type HTTP --target http://localhost:8080/actuator/health --retries 2
-schedkeel create --name archive-runs --cron "0 0 3 * * *" --zone America/Whitehorse --type BATCH --target archiveRuns
+schedkeel create --name archive-runs --cron "0 0 3 * * *" --zone America/Whitehorse --type BATCH --target archiveRuns --description "Archives finished runs older than 30 days"
 schedkeel trigger health-check
 schedkeel jobs
 schedkeel runs --job health-check --limit 5

@@ -226,8 +226,32 @@ class JobCommandsTests {
                         .contentType(HAL)
                         .body("{\"name\": \"ping\", \"cron\": \"0 * * * * *\", \"enabled\": true}"));
 
-        String out = commands.create("ping", "0 * * * * *", "http", "https://example.org", null, "", 2);
+        String out = commands.create("ping", "0 * * * * *", "http", "https://example.org", null, "", 2, null);
         assertThat(out).startsWith("Created.").contains("name                 ping");
+    }
+
+    @Test
+    void createsAJobWithADescription() {
+        server.expect(requestTo("http://sk.test/api/jobs"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"name": "archive-runs", "cron": "0 0 3 * * *", "type": "BATCH",
+                         "target": "archiveRuns", "description": "Archives finished runs older than 30 days"}
+                        """, JsonCompareMode.STRICT))
+                .andRespond(withStatus(HttpStatus.CREATED).contentType(HAL).body("""
+                                {"name": "archive-runs", "description": "Archives finished runs older than 30 days"}
+                                """));
+
+        String out = commands.create(
+                "archive-runs",
+                "0 0 3 * * *",
+                "batch",
+                "archiveRuns",
+                null,
+                null,
+                null,
+                "Archives finished runs older than 30 days");
+        assertThat(out).startsWith("Created.").contains("Archives finished runs older than 30 days");
     }
 
     @Test

@@ -131,7 +131,8 @@ class JobCommands {
             @Option(longName = "target", required = true, description = "URL, topic or batch job name") String target,
             @Option(longName = "zone", description = "Time zone, for example America/Whitehorse") String zone,
             @Option(longName = "payload", description = "Body, message or log text") String payload,
-            @Option(longName = "retries", description = "Retries after a failed first attempt") Integer retries) {
+            @Option(longName = "retries", description = "Retries after a failed first attempt") Integer retries,
+            @Option(longName = "description", description = "What the job is for") String description) {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("name", name);
         fields.put("cron", cron);
@@ -140,6 +141,7 @@ class JobCommands {
         putIfSet(fields, "timeZone", zone);
         putIfSet(fields, "payload", payload);
         putIfSet(fields, "maxRetries", retries);
+        putIfSet(fields, "description", description);
         return call(() -> "Created.\n" + describe(client.create(fields)));
     }
 
