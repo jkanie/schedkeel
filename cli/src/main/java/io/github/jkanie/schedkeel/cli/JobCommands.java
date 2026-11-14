@@ -92,14 +92,20 @@ class JobCommands {
         });
     }
 
-    @Command(name = "jobs", group = "Jobs", description = "List every job, or only the jobs of 1 type")
-    String jobs(@Option(longName = "type", description = "Only jobs of this type, such as HTTP") String type) {
+    @Command(name = "jobs", group = "Jobs", description = "List every job, or only the jobs of 1 type or name")
+    String jobs(
+            @Option(longName = "type", description = "Only jobs of this type, such as HTTP") String type,
+            @Option(longName = "name", description = "Only jobs whose name holds this text, in any case") String name) {
         return call(() -> {
             Table table = new Table("NAME", "CRON", "ZONE", "TYPE", "ENABLED", "TARGET");
             boolean any = false;
+            String part = name == null ? null : name.toLowerCase(Locale.ROOT);
             for (JsonNode job : client.jobs()) {
                 any = true;
                 if (type != null && !text(job, "type").equalsIgnoreCase(type)) {
+                    continue;
+                }
+                if (part != null && !text(job, "name").toLowerCase(Locale.ROOT).contains(part)) {
                     continue;
                 }
                 table.row(
@@ -110,10 +116,13 @@ class JobCommands {
                         text(job, "enabled"),
                         text(job, "target"));
             }
+            if (!any) {
+                return table.render(
+                        "No jobs yet. Create one with: create --name ... --cron ... --type ... --target ...");
+            }
+            String kind = type == null ? "" : type.toUpperCase(Locale.ROOT) + " ";
             return table.render(
-                    any && type != null
-                            ? "No " + type.toUpperCase(Locale.ROOT) + " jobs."
-                            : "No jobs yet. Create one with: create --name ... --cron ... --type ... --target ...");
+                    name == null ? "No " + kind + "jobs." : "No " + kind + "jobs with \"" + name + "\" in the name.");
         });
     }
 

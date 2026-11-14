@@ -157,7 +157,7 @@ archive-runs  0 0 3 * * *  America/Whitehorse  BATCH  true     archiveRuns
 health-check  0 * * * * *  UTC                 HTTP   true     http://localhost:8080/actuator/health
 ```
 
-`schedkeel jobs --type http` lists only the jobs of that type, in any case. When no job has it, it says so (`No HTTP jobs.`).
+`schedkeel jobs --type http` lists only the jobs of that type, in any case. When no job has it, it says so (`No HTTP jobs.`). `schedkeel jobs --name archive` lists only the jobs whose name holds that text, in any case, and works with `--type` too (`No HTTP jobs with "archive" in the name.` when none does).
 
 `schedkeel runs --limit N` lists the N newest runs (20 when it is left out), N from 1 to 2000, the page sizes the server takes as asked.
 

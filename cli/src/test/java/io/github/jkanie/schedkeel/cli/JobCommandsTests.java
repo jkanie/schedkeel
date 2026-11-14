@@ -57,7 +57,7 @@ class JobCommandsTests {
                            "type": "HTTP", "enabled": true, "target": "https://example.org"}]}}
                         """, HAL));
 
-        assertThat(commands.jobs(null)).isEqualTo("""
+        assertThat(commands.jobs(null, null)).isEqualTo("""
                 NAME            CRON         ZONE  TYPE  ENABLED  TARGET
                 nightly-report  0 0 2 * * *  UTC   HTTP  true     https://example.org""");
     }
@@ -74,10 +74,36 @@ class JobCommandsTests {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(twoJobs, HAL));
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(twoJobs, HAL));
 
-        assertThat(commands.jobs("http")).isEqualTo("""
+        assertThat(commands.jobs("http", null)).isEqualTo("""
                 NAME          CRON         ZONE  TYPE  ENABLED  TARGET
                 health-check  0 * * * * *  UTC   HTTP  false    http://localhost:8080/actuator/health""");
-        assertThat(commands.jobs("kafka")).isEqualTo("No KAFKA jobs.");
+        assertThat(commands.jobs("kafka", null)).isEqualTo("No KAFKA jobs.");
+    }
+
+    @Test
+    void listsOnlyTheJobsWhoseNameHoldsTheText() {
+        String threeJobs = """
+                {"_embedded": {"jobs": [
+                  {"name": "archive-runs", "cron": "0 0 3 * * *", "timeZone": "UTC",
+                   "type": "BATCH", "enabled": true, "target": "archiveRuns"},
+                  {"name": "health-check", "cron": "0 * * * * *", "timeZone": "UTC",
+                   "type": "HTTP", "enabled": false, "target": "http://localhost:8080/actuator/health"},
+                  {"name": "Nightly-Archive", "cron": "0 0 1 * * *", "timeZone": "UTC",
+                   "type": "HTTP", "enabled": true, "target": "https://example.org"}]}}
+                """;
+        for (int i = 0; i < 4; i++) {
+            server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(threeJobs, HAL));
+        }
+
+        assertThat(commands.jobs(null, "ARCHIVE")).isEqualTo("""
+                NAME             CRON         ZONE  TYPE   ENABLED  TARGET
+                archive-runs     0 0 3 * * *  UTC   BATCH  true     archiveRuns
+                Nightly-Archive  0 0 1 * * *  UTC   HTTP   true     https://example.org""");
+        assertThat(commands.jobs("http", "archive")).isEqualTo("""
+                NAME             CRON         ZONE  TYPE  ENABLED  TARGET
+                Nightly-Archive  0 0 1 * * *  UTC   HTTP  true     https://example.org""");
+        assertThat(commands.jobs(null, "backup")).isEqualTo("No jobs with \"backup\" in the name.");
+        assertThat(commands.jobs("batch", "check")).isEqualTo("No BATCH jobs with \"check\" in the name.");
     }
 
     @Test
@@ -92,7 +118,7 @@ class JobCommandsTests {
     @Test
     void saysSoWhenThereAreNoJobs() {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("{}", HAL));
-        assertThat(commands.jobs(null)).startsWith("No jobs yet.");
+        assertThat(commands.jobs(null, null)).startsWith("No jobs yet.");
     }
 
     @Test
@@ -288,7 +314,7 @@ class JobCommandsTests {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(request -> {
             throw new ConnectException("Connection refused");
         });
-        assertThat(commands.jobs(null)).startsWith("Cannot reach the server.");
+        assertThat(commands.jobs(null, null)).startsWith("Cannot reach the server.");
     }
 
     @Test
