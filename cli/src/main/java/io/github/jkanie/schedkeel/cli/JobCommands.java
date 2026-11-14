@@ -55,9 +55,16 @@ class JobCommands {
     @Command(name = "next", group = "Jobs", description = "Show the next fire times of a job")
     String next(
             @Argument(index = 0, description = "Job name") String name,
-            @Option(longName = "count", defaultValue = "5", description = "How many, 1 to 100") int count) {
+            @Option(longName = "count", defaultValue = "5", description = "How many, 1 to 100") int count,
+            @Option(longName = "in", description = "Show the times in this zone, such as UTC") String in) {
         if (count < 1 || count > 100) {
             return "Error: --count must be from 1 to 100.";
+        }
+        ZoneId shownIn;
+        try {
+            shownIn = in == null ? null : ZoneId.of(in);
+        } catch (DateTimeException e) {
+            return "Error: --in needs a time zone such as America/Whitehorse or UTC, got '" + in + "'.";
         }
         return call(() -> {
             JsonNode job = client.job(name);
@@ -71,18 +78,21 @@ class JobCommands {
             } catch (IllegalArgumentException | DateTimeException e) {
                 return "Error: the job's cron or zone cannot be read here: " + e.getMessage();
             }
-            StringBuilder out = new StringBuilder("Next fires of " + name + " (" + cron + ", " + zone + "):\n");
+            // The cron runs in the job's zone, --in changes only how each time is shown.
+            String shown = shownIn == null ? "" : ", shown in " + shownIn.getId();
+            StringBuilder out = new StringBuilder("Next fires of " + name + " (" + cron + ", " + zone + shown + "):\n");
             ZonedDateTime at = ZonedDateTime.now(clock).withZoneSameInstant(zoneId);
-            int shown = 0;
-            while (shown < count) {
+            int fires = 0;
+            while (fires < count) {
                 at = expression.next(at);
                 if (at == null) {
                     break;
                 }
-                out.append(FIRE.format(at)).append('\n');
-                shown++;
+                out.append(FIRE.format(shownIn == null ? at : at.withZoneSameInstant(shownIn)))
+                        .append('\n');
+                fires++;
             }
-            if (shown == 0) {
+            if (fires == 0) {
                 out.append("None. The cron never fires again.\n");
             }
             if (!job.path("enabled").asBoolean(true)) {

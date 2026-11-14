@@ -167,7 +167,7 @@ Other commands: `job NAME`, `run ID` (1 run with its output, such as the error o
 
 `schedkeel update health-check --cron "0 */5 * * * *" --retries 0` reads the job, changes only the options given (`--cron`, `--zone`, `--target`, `--payload`, `--retries`, `--description`), then sends the whole job back with `PUT /api/jobs/{name}`. Every other field keeps its value, the job's on or off state among them. The change shows in `history NAME` like 1 made on the dashboard.
 
-`schedkeel next health-check --count 3` lists the next 3 fire times of the job (5 by default, up to 100), worked out from now with the job's cron in its own time zone, the way the server reads them. Each line shows the zone's offset, so a fire that a clock change moves shows where it lands. A paused job gets a line that says none of them fires until `resume NAME`.
+`schedkeel next health-check --count 3` lists the next 3 fire times of the job (5 by default, up to 100), worked out from now with the job's cron in its own time zone, the way the server reads them. Each line shows the zone's offset, so a fire that a clock change moves shows where it lands. A paused job gets a line that says none of them fires until `resume NAME`. `--in UTC` (or any other zone) shows the same fire times in that zone instead, while the cron still runs in the job's own zone.
 
 `schedkeel export health-check > health-check.json` prints the job as JSON, with only the 12 fields that the API takes to create a job (no times, no links). `schedkeel import health-check.json` creates a job from such a file, such as a copy on another server, or a new job after its name is changed in the file. A job that already has that name gets the server's error, and nothing changes.
 

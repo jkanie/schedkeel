@@ -130,7 +130,7 @@ class JobCommandsTests {
                         {"name": "hourly", "cron": "0 15 * * * *", "timeZone": "America/New_York", "enabled": false}
                         """, HAL));
 
-        assertThat(commands.next("hourly", 3)).isEqualTo("""
+        assertThat(commands.next("hourly", 3, null)).isEqualTo("""
                 Next fires of hourly (0 15 * * * *, America/New_York):
                 2027-03-14 03:15:00 -04:00 (Sun)
                 2027-03-14 04:15:00 -04:00 (Sun)
@@ -139,14 +139,31 @@ class JobCommandsTests {
     }
 
     @Test
+    void nextShowsTheSameFiresInAnotherZone() {
+        // The same instants as above: 03:15 -04:00 in New York is 07:15 UTC.
+        commands.clock(Clock.fixed(Instant.parse("2027-03-14T06:30:00Z"), ZoneOffset.UTC));
+        server.expect(requestTo("http://sk.test/api/jobs/hourly")).andRespond(withSuccess("""
+                        {"name": "hourly", "cron": "0 15 * * * *", "timeZone": "America/New_York", "enabled": true}
+                        """, HAL));
+
+        assertThat(commands.next("hourly", 2, "UTC")).isEqualTo("""
+                Next fires of hourly (0 15 * * * *, America/New_York, shown in UTC):
+                2027-03-14 07:15:00 +00:00 (Sun)
+                2027-03-14 08:15:00 +00:00 (Sun)""");
+        // A zone that is not 1 stops before any call to the server.
+        assertThat(commands.next("hourly", 2, "Mars/Olympus"))
+                .isEqualTo("Error: --in needs a time zone such as America/Whitehorse or UTC, got 'Mars/Olympus'.");
+    }
+
+    @Test
     void nextChecksTheCountAndReportsAMissingJob() {
-        assertThat(commands.next("ping", 0)).isEqualTo("Error: --count must be from 1 to 100.");
-        assertThat(commands.next("ping", 101)).isEqualTo("Error: --count must be from 1 to 100.");
+        assertThat(commands.next("ping", 0, null)).isEqualTo("Error: --count must be from 1 to 100.");
+        assertThat(commands.next("ping", 101, null)).isEqualTo("Error: --count must be from 1 to 100.");
         server.expect(requestTo("http://sk.test/api/jobs/missing"))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                         .body("{\"detail\": \"No job is named 'missing'.\"}"));
-        assertThat(commands.next("missing", 5)).isEqualTo("Error 404: No job is named 'missing'.");
+        assertThat(commands.next("missing", 5, null)).isEqualTo("Error 404: No job is named 'missing'.");
     }
 
     @Test
@@ -155,7 +172,7 @@ class JobCommandsTests {
         server.expect(requestTo("http://sk.test/api/jobs/never")).andRespond(withSuccess("""
                         {"name": "never", "cron": "0 0 0 30 2 *", "timeZone": "UTC", "enabled": true}
                         """, HAL));
-        assertThat(commands.next("never", 5))
+        assertThat(commands.next("never", 5, null))
                 .isEqualTo("Next fires of never (0 0 0 30 2 *, UTC):\nNone. The cron never fires again.");
     }
 
