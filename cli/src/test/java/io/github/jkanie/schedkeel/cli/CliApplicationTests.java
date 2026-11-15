@@ -32,7 +32,7 @@ class CliApplicationTests {
     void registersEveryCommand() throws Exception {
         ShellScreen help = shell.sendCommand("help");
         assertThat(String.join("\n", help.lines()))
-                .contains("jobs", "job", "create", "trigger", "pause", "resume", "delete", "runs", "history");
+                .contains("jobs", "job", "create", "copy", "trigger", "pause", "resume", "delete", "runs", "history");
     }
 
     @Test

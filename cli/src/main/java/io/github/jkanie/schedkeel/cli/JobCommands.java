@@ -245,6 +245,26 @@ class JobCommands {
         return call(() -> "Created.\n" + describe(client.create(fields)));
     }
 
+    @Command(name = "copy", group = "Jobs", description = "Create a paused copy of a job under a new name")
+    String copy(
+            @Argument(index = 0, description = "Job name") String name,
+            @Argument(index = 1, description = "Name of the copy") String newName) {
+        if (newName == null || newName.isBlank()) {
+            return "Error: copy needs the name of the copy, such as: copy " + name + " " + name + "-2";
+        }
+        if (newName.equals(name)) {
+            return "Error: the copy needs a name other than " + name + ".";
+        }
+        // The copy starts paused, such that 2 jobs never do the same work by accident before the copy is changed.
+        return call(() -> {
+            Map<String, Object> fields = requestFields(client.job(name));
+            fields.put("name", newName);
+            fields.put("enabled", false);
+            return "Created " + newName + ", paused. Start it with: resume " + newName + "\n"
+                    + describe(client.create(fields));
+        });
+    }
+
     @Command(name = "trigger", group = "Runs", description = "Run a job now")
     String trigger(
             @Argument(index = 0, description = "Job name") String name,

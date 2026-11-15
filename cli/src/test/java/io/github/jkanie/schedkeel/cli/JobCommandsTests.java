@@ -207,6 +207,38 @@ class JobCommandsTests {
     }
 
     @Test
+    void copyCreatesAPausedJobWithEveryOtherFieldKept() {
+        server.expect(requestTo("http://sk.test/api/jobs/ping"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(PING.replace("\"enabled\": false", "\"enabled\": true"), HAL));
+        server.expect(requestTo("http://sk.test/api/jobs"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"name": "ping-eu", "cron": "0 * * * * *", "timeZone": "UTC", "type": "HTTP",
+                         "target": "https://example.org", "payload": "{}", "enabled": false, "concurrency": "ALLOW",
+                         "maxRetries": 2, "retryBackoffSeconds": 60, "timeoutSeconds": 90}
+                        """, JsonCompareMode.STRICT))
+                .andRespond(withSuccess("{\"name\": \"ping-eu\", \"enabled\": false}", HAL));
+
+        assertThat(commands.copy("ping", "ping-eu"))
+                .startsWith("Created ping-eu, paused. Start it with: resume ping-eu\n");
+    }
+
+    @Test
+    void copyNeedsANewNameAndReportsAMissingJob() {
+        assertThat(commands.copy("ping", null))
+                .isEqualTo("Error: copy needs the name of the copy, such as: copy ping ping-2");
+        assertThat(commands.copy("ping", " ")).startsWith("Error: copy needs the name of the copy");
+        assertThat(commands.copy("ping", "ping")).isEqualTo("Error: the copy needs a name other than ping.");
+
+        server.expect(requestTo("http://sk.test/api/jobs/missing"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                        .body("{\"detail\": \"No job is named 'missing'.\"}"));
+        assertThat(commands.copy("missing", "other")).isEqualTo("Error 404: No job is named 'missing'.");
+    }
+
+    @Test
     void importReportsABadFile(@TempDir Path dir) throws IOException {
         Path missing = dir.resolve("missing.json");
         assertThat(commands.importJob(missing.toString())).startsWith("Error: cannot read " + missing);

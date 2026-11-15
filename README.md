@@ -171,6 +171,8 @@ Other commands: `job NAME`, `run ID` (1 run with its output, such as the error o
 
 `schedkeel export health-check > health-check.json` prints the job as JSON, with only the 12 fields that the API takes to create a job (no times, no links). `schedkeel import health-check.json` creates a job from such a file, such as a copy on another server, or a new job after its name is changed in the file. A job that already has that name gets the server's error, and nothing changes.
 
+`schedkeel copy health-check health-check-eu` creates a new job with every field of `health-check` but its name, on the same server, in 1 step. The copy starts paused, such that 2 jobs never do the same work by accident: change it with `update`, then start it with `resume health-check-eu`. A name that is taken gets the server's error, and nothing changes.
+
 ### API
 
 Start at `GET /api` and follow the links. `./gradlew :server:asciidoctor` writes the API guide, with every example taken from a test run, to `server/build/docs/asciidoc/index.html`. CI keeps the same file as the `api-docs` artifact of each run.
