@@ -49,6 +49,10 @@ class JobCommands {
         this.clock = clock;
     }
 
+    /** The names of the server's RunStatus enum, in its order. */
+    static final List<String> RUN_STATUSES =
+            List.of("QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "TIMED_OUT", "SKIPPED");
+
     private static final DateTimeFormatter FIRE =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss xxx (EEE)", Locale.ROOT);
 
@@ -312,9 +316,15 @@ class JobCommands {
         if (limit < 1 || limit > 2000) {
             return "Error: --limit must be from 1 to 2000.";
         }
+        // The server's RunStatus names are upper case, so the CLI sends the value trimmed and in upper case.
+        String wanted =
+                status == null || status.isBlank() ? null : status.trim().toUpperCase(Locale.ROOT);
+        if (wanted != null && !RUN_STATUSES.contains(wanted)) {
+            return "Error: --status must be 1 of " + String.join(", ", RUN_STATUSES) + ", got '" + status + "'.";
+        }
         return call(() -> {
             Table table = new Table("ID", "JOB", "STATUS", "TRIGGER", "ATTEMPT", "SCHEDULED", "FINISHED");
-            for (JsonNode run : client.runs(job, status, limit)) {
+            for (JsonNode run : client.runs(job, wanted, limit)) {
                 table.row(
                         text(run, "id"),
                         text(run, "jobName"),

@@ -318,6 +318,18 @@ class JobCommandsTests {
     }
 
     @Test
+    void readsARunStatusInAnyCaseAndRefusesAnUnknownOne() {
+        server.expect(requestTo("http://sk.test/api/runs?size=5&status=TIMED_OUT"))
+                .andRespond(withSuccess("{}", HAL));
+        assertThat(commands.runs(null, " timed_out ", 5)).isEqualTo("No runs match.");
+        // No request reaches the server for a status that is not 1 of its 6.
+        assertThat(commands.runs(null, "broken", 5))
+                .isEqualTo("Error: --status must be 1 of QUEUED, RUNNING, SUCCEEDED, FAILED, TIMED_OUT, SKIPPED,"
+                        + " got 'broken'.");
+        server.verify();
+    }
+
+    @Test
     void turnsAProblemDetailIntoOneLine() {
         server.expect(requestTo("http://sk.test/api/jobs/missing"))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND)
