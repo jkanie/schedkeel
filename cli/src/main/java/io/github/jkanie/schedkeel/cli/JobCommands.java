@@ -109,7 +109,8 @@ class JobCommands {
     @Command(name = "jobs", group = "Jobs", description = "List every job, or only the jobs of 1 type or name")
     String jobs(
             @Option(longName = "type", description = "Only jobs of this type, such as HTTP") String type,
-            @Option(longName = "name", description = "Only jobs whose name holds this text, in any case") String name) {
+            @Option(longName = "name", description = "Only jobs whose name holds this text, in any case") String name,
+            @Option(longName = "paused", description = "Only the paused jobs") boolean paused) {
         return call(() -> {
             Table table = new Table("NAME", "CRON", "ZONE", "TYPE", "ENABLED", "TARGET");
             boolean any = false;
@@ -120,6 +121,9 @@ class JobCommands {
                     continue;
                 }
                 if (part != null && !text(job, "name").toLowerCase(Locale.ROOT).contains(part)) {
+                    continue;
+                }
+                if (paused && job.path("enabled").asBoolean(true)) {
                     continue;
                 }
                 table.row(
@@ -134,7 +138,7 @@ class JobCommands {
                 return table.render(
                         "No jobs yet. Create one with: create --name ... --cron ... --type ... --target ...");
             }
-            String kind = type == null ? "" : type.toUpperCase(Locale.ROOT) + " ";
+            String kind = (paused ? "paused " : "") + (type == null ? "" : type.toUpperCase(Locale.ROOT) + " ");
             return table.render(
                     name == null ? "No " + kind + "jobs." : "No " + kind + "jobs with \"" + name + "\" in the name.");
         });
