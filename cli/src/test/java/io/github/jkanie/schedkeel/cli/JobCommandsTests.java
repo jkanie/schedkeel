@@ -444,11 +444,30 @@ class JobCommandsTests {
                           {"revision": 1, "change": "INSERT", "changedAt": "2026-03-01T00:00:00Z", "changedBy": "admin",
                            "job": {"cron": "0 * * * * *", "enabled": true}}]}}
                         """, HAL));
-        assertThat(commands.history("ping").lines())
+        assertThat(commands.history("ping", false).lines())
                 .hasSize(3)
                 .element(1)
                 .asString()
                 .startsWith("2    UPDATE");
+    }
+
+    @Test
+    void printsHistoryAsCsv() {
+        server.expect(requestTo("http://sk.test/api/jobs/ping/history")).andRespond(withSuccess("""
+                        {"_embedded": {"revisions": [
+                          {"revision": 2, "change": "UPDATE", "changedAt": "2026-03-02T00:00:00Z", "changedBy": null,
+                           "job": {"cron": "0 0 9 * * MON,FRI", "enabled": false}},
+                          {"revision": 1, "change": "INSERT", "changedAt": "2026-03-01T00:00:00Z", "changedBy": "admin",
+                           "job": {"cron": "0 * * * * *", "enabled": true}}]}}
+                        """, HAL));
+        server.expect(requestTo("http://sk.test/api/jobs/new/history")).andRespond(withSuccess("{}", HAL));
+
+        // The newest 1st as in the table, a comma in a cron puts it in quotes, and a change with no user is empty.
+        assertThat(commands.history("ping", true))
+                .isEqualTo("REV,CHANGE,WHEN,WHO,CRON,ENABLED\n"
+                        + "2,UPDATE,2026-03-02T00:00:00Z,,\"0 0 9 * * MON,FRI\",false\n"
+                        + "1,INSERT,2026-03-01T00:00:00Z,admin,0 * * * * *,true");
+        assertThat(commands.history("new", true)).isEqualTo("REV,CHANGE,WHEN,WHO,CRON,ENABLED");
     }
 
     @Test

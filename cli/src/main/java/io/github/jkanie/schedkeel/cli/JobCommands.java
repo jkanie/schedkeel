@@ -373,20 +373,22 @@ class JobCommands {
     }
 
     @Command(name = "history", group = "Jobs", description = "Show every saved version of a job")
-    String history(@Argument(index = 0, description = "Job name") String name) {
+    String history(
+            @Argument(index = 0, description = "Job name") String name,
+            @Option(longName = "csv", description = "Print CSV, such as for a spreadsheet") boolean csv) {
         return call(() -> {
             Table table = new Table("REV", "CHANGE", "WHEN", "WHO", "CRON", "ENABLED");
             List<JsonNode> revisions = client.history(name);
             for (JsonNode rev : revisions) {
                 table.row(
-                        text(rev, "revision"),
-                        text(rev, "change"),
-                        text(rev, "changedAt"),
-                        text(rev, "changedBy"),
-                        text(rev.path("job"), "cron"),
-                        text(rev.path("job"), "enabled"));
+                        cell(rev, "revision"),
+                        cell(rev, "change"),
+                        cell(rev, "changedAt"),
+                        cell(rev, "changedBy"),
+                        cell(rev.path("job"), "cron"),
+                        cell(rev.path("job"), "enabled"));
             }
-            return table.render("No history.");
+            return csv ? table.csv() : table.render("No history.");
         });
     }
 
