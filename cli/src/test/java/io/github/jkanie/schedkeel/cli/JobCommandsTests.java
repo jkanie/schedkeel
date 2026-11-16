@@ -57,7 +57,7 @@ class JobCommandsTests {
                            "type": "HTTP", "enabled": true, "target": "https://example.org"}]}}
                         """, HAL));
 
-        assertThat(commands.jobs(null, null, false)).isEqualTo("""
+        assertThat(commands.jobs(null, null, false, false)).isEqualTo("""
                 NAME            CRON         ZONE  TYPE  ENABLED  TARGET
                 nightly-report  0 0 2 * * *  UTC   HTTP  true     https://example.org""");
     }
@@ -74,10 +74,10 @@ class JobCommandsTests {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(twoJobs, HAL));
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(twoJobs, HAL));
 
-        assertThat(commands.jobs("http", null, false)).isEqualTo("""
+        assertThat(commands.jobs("http", null, false, false)).isEqualTo("""
                 NAME          CRON         ZONE  TYPE  ENABLED  TARGET
                 health-check  0 * * * * *  UTC   HTTP  false    http://localhost:8080/actuator/health""");
-        assertThat(commands.jobs("kafka", null, false)).isEqualTo("No KAFKA jobs.");
+        assertThat(commands.jobs("kafka", null, false, false)).isEqualTo("No KAFKA jobs.");
     }
 
     @Test
@@ -95,15 +95,16 @@ class JobCommandsTests {
             server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(threeJobs, HAL));
         }
 
-        assertThat(commands.jobs(null, "ARCHIVE", false)).isEqualTo("""
+        assertThat(commands.jobs(null, "ARCHIVE", false, false)).isEqualTo("""
                 NAME             CRON         ZONE  TYPE   ENABLED  TARGET
                 archive-runs     0 0 3 * * *  UTC   BATCH  true     archiveRuns
                 Nightly-Archive  0 0 1 * * *  UTC   HTTP   true     https://example.org""");
-        assertThat(commands.jobs("http", "archive", false)).isEqualTo("""
+        assertThat(commands.jobs("http", "archive", false, false)).isEqualTo("""
                 NAME             CRON         ZONE  TYPE  ENABLED  TARGET
                 Nightly-Archive  0 0 1 * * *  UTC   HTTP  true     https://example.org""");
-        assertThat(commands.jobs(null, "backup", false)).isEqualTo("No jobs with \"backup\" in the name.");
-        assertThat(commands.jobs("batch", "check", false)).isEqualTo("No BATCH jobs with \"check\" in the name.");
+        assertThat(commands.jobs(null, "backup", false, false)).isEqualTo("No jobs with \"backup\" in the name.");
+        assertThat(commands.jobs("batch", "check", false, false))
+                .isEqualTo("No BATCH jobs with \"check\" in the name.");
     }
 
     @Test
@@ -121,30 +122,31 @@ class JobCommandsTests {
             server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess(threeJobs, HAL));
         }
 
-        assertThat(commands.jobs(null, null, true)).isEqualTo("""
+        assertThat(commands.jobs(null, null, true, false)).isEqualTo("""
                 NAME          CRON         ZONE  TYPE   ENABLED  TARGET
                 health-check  0 * * * * *  UTC   HTTP   false    http://localhost:8080/actuator/health
                 old-archive   0 0 1 * * *  UTC   BATCH  false    archiveRuns""");
-        assertThat(commands.jobs("batch", "archive", true)).isEqualTo("""
+        assertThat(commands.jobs("batch", "archive", true, false)).isEqualTo("""
                 NAME         CRON         ZONE  TYPE   ENABLED  TARGET
                 old-archive  0 0 1 * * *  UTC   BATCH  false    archiveRuns""");
-        assertThat(commands.jobs("kafka", null, true)).isEqualTo("No paused KAFKA jobs.");
-        assertThat(commands.jobs(null, "nightly", true)).isEqualTo("No paused jobs with \"nightly\" in the name.");
+        assertThat(commands.jobs("kafka", null, true, false)).isEqualTo("No paused KAFKA jobs.");
+        assertThat(commands.jobs(null, "nightly", true, false))
+                .isEqualTo("No paused jobs with \"nightly\" in the name.");
     }
 
     @Test
     void refusesARunsLimitTheServerWouldChange() {
         // No request reaches the server: the expectations stay empty and verify() passes.
-        assertThat(commands.runs(null, null, 0)).isEqualTo("Error: --limit must be from 1 to 2000.");
-        assertThat(commands.runs(null, null, -5)).isEqualTo("Error: --limit must be from 1 to 2000.");
-        assertThat(commands.runs(null, null, 2001)).isEqualTo("Error: --limit must be from 1 to 2000.");
+        assertThat(commands.runs(null, null, 0, false)).isEqualTo("Error: --limit must be from 1 to 2000.");
+        assertThat(commands.runs(null, null, -5, false)).isEqualTo("Error: --limit must be from 1 to 2000.");
+        assertThat(commands.runs(null, null, 2001, false)).isEqualTo("Error: --limit must be from 1 to 2000.");
         server.verify();
     }
 
     @Test
     void saysSoWhenThereAreNoJobs() {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("{}", HAL));
-        assertThat(commands.jobs(null, null, false)).startsWith("No jobs yet.");
+        assertThat(commands.jobs(null, null, false, false)).startsWith("No jobs yet.");
     }
 
     @Test
@@ -371,17 +373,46 @@ class JobCommandsTests {
                           "trigger": "SCHEDULE", "attempt": 1, "scheduledFor": "2026-03-01T12:00:00Z",
                           "finishedAt": null}]}}
                         """, HAL));
-        assertThat(commands.runs("ping", "FAILED", 5))
+        assertThat(commands.runs("ping", "FAILED", 5, false))
                 .contains("7   ping  FAILED  SCHEDULE  1        2026-03-01T12:00:00Z  -");
+    }
+
+    @Test
+    void printsJobsAndRunsAsCsv() {
+        server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("""
+                {"_embedded": {"jobs": [
+                  {"name": "nightly-report", "cron": "0 0 2 * * *", "timeZone": "UTC",
+                   "type": "HTTP", "enabled": false, "target": "https://example.org/report?a=1,2"},
+                  {"name": "health-check", "cron": "0 * * * * *", "timeZone": "UTC",
+                   "type": "HTTP", "enabled": true, "target": "http://localhost:8080/actuator/health"}]}}
+                """, HAL));
+        server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("{}", HAL));
+        server.expect(requestTo("http://sk.test/api/runs?size=5&job=ping")).andRespond(withSuccess("""
+                        {"_embedded": {"runs": [{"id": 7, "jobName": "ping", "status": "FAILED",
+                          "trigger": "SCHEDULE", "attempt": 1, "scheduledFor": "2026-03-01T12:00:00Z",
+                          "finishedAt": null}]}}
+                        """, HAL));
+        server.expect(requestTo("http://sk.test/api/runs?size=5")).andRespond(withSuccess("{}", HAL));
+
+        // The filters still apply, a comma in a cell puts it in quotes, a missing value is an empty cell, and an
+        // empty list prints only the header.
+        assertThat(commands.jobs(null, null, true, true))
+                .isEqualTo("NAME,CRON,ZONE,TYPE,ENABLED,TARGET\n"
+                        + "nightly-report,0 0 2 * * *,UTC,HTTP,false,\"https://example.org/report?a=1,2\"");
+        assertThat(commands.jobs(null, null, false, true)).isEqualTo("NAME,CRON,ZONE,TYPE,ENABLED,TARGET");
+        assertThat(commands.runs("ping", null, 5, true))
+                .isEqualTo("ID,JOB,STATUS,TRIGGER,ATTEMPT,SCHEDULED,FINISHED\n"
+                        + "7,ping,FAILED,SCHEDULE,1,2026-03-01T12:00:00Z,");
+        assertThat(commands.runs(null, null, 5, true)).isEqualTo("ID,JOB,STATUS,TRIGGER,ATTEMPT,SCHEDULED,FINISHED");
     }
 
     @Test
     void readsARunStatusInAnyCaseAndRefusesAnUnknownOne() {
         server.expect(requestTo("http://sk.test/api/runs?size=5&status=TIMED_OUT"))
                 .andRespond(withSuccess("{}", HAL));
-        assertThat(commands.runs(null, " timed_out ", 5)).isEqualTo("No runs match.");
+        assertThat(commands.runs(null, " timed_out ", 5, false)).isEqualTo("No runs match.");
         // No request reaches the server for a status that is not 1 of its 6.
-        assertThat(commands.runs(null, "broken", 5))
+        assertThat(commands.runs(null, "broken", 5, false))
                 .isEqualTo("Error: --status must be 1 of QUEUED, RUNNING, SUCCEEDED, FAILED, TIMED_OUT, SKIPPED,"
                         + " got 'broken'.");
         server.verify();
@@ -401,7 +432,7 @@ class JobCommandsTests {
         server.expect(requestTo("http://sk.test/api/jobs")).andRespond(request -> {
             throw new ConnectException("Connection refused");
         });
-        assertThat(commands.jobs(null, null, false)).startsWith("Cannot reach the server.");
+        assertThat(commands.jobs(null, null, false, false)).startsWith("Cannot reach the server.");
     }
 
     @Test

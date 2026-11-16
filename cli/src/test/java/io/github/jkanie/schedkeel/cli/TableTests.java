@@ -25,6 +25,25 @@ class TableTests {
     }
 
     @Test
+    void writesCsvWithQuotesOnlyWhereACellNeedsThem() {
+        String out = new Table("NAME", "CRON", "PAYLOAD")
+                .row("ping", "0 * * * * *", null)
+                .row("say \"hi\"", "0 0 2 * * *", "a,b\nc")
+                .row("-", "", "x")
+                .csv();
+        assertThat(out)
+                .isEqualTo("NAME,CRON,PAYLOAD\n"
+                        + "ping,0 * * * * *,\n"
+                        + "\"say \"\"hi\"\"\",0 0 2 * * *,\"a,b\nc\"\n"
+                        + "-,,x");
+    }
+
+    @Test
+    void writesOnlyTheCsvHeaderWhenThereAreNoRows() {
+        assertThat(new Table("ID", "JOB").csv()).isEqualTo("ID,JOB");
+    }
+
+    @Test
     void refusesARowOfTheWrongWidth() {
         assertThatThrownBy(() -> new Table("A", "B").row("only one")).isInstanceOf(IllegalArgumentException.class);
     }

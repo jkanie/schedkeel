@@ -110,7 +110,8 @@ class JobCommands {
     String jobs(
             @Option(longName = "type", description = "Only jobs of this type, such as HTTP") String type,
             @Option(longName = "name", description = "Only jobs whose name holds this text, in any case") String name,
-            @Option(longName = "paused", description = "Only the paused jobs") boolean paused) {
+            @Option(longName = "paused", description = "Only the paused jobs") boolean paused,
+            @Option(longName = "csv", description = "Print CSV, such as for a spreadsheet") boolean csv) {
         return call(() -> {
             Table table = new Table("NAME", "CRON", "ZONE", "TYPE", "ENABLED", "TARGET");
             boolean any = false;
@@ -127,12 +128,15 @@ class JobCommands {
                     continue;
                 }
                 table.row(
-                        text(job, "name"),
-                        text(job, "cron"),
-                        text(job, "timeZone"),
-                        text(job, "type"),
-                        text(job, "enabled"),
-                        text(job, "target"));
+                        cell(job, "name"),
+                        cell(job, "cron"),
+                        cell(job, "timeZone"),
+                        cell(job, "type"),
+                        cell(job, "enabled"),
+                        cell(job, "target"));
+            }
+            if (csv) {
+                return table.csv();
             }
             if (!any) {
                 return table.render(
@@ -334,7 +338,8 @@ class JobCommands {
     String runs(
             @Option(longName = "job", description = "Only runs of this job") String job,
             @Option(longName = "status", description = "Only runs with this status") String status,
-            @Option(longName = "limit", defaultValue = "20", description = "How many, from 1 to 2000") int limit) {
+            @Option(longName = "limit", defaultValue = "20", description = "How many, from 1 to 2000") int limit,
+            @Option(longName = "csv", description = "Print CSV, such as for a spreadsheet") boolean csv) {
         // The server reads a page size below 1 as its default of 20 and cuts one above 2000 down to 2000, so the
         // CLI says so instead of listing a different number of runs than was asked for.
         if (limit < 1 || limit > 2000) {
@@ -350,15 +355,15 @@ class JobCommands {
             Table table = new Table("ID", "JOB", "STATUS", "TRIGGER", "ATTEMPT", "SCHEDULED", "FINISHED");
             for (JsonNode run : client.runs(job, wanted, limit)) {
                 table.row(
-                        text(run, "id"),
-                        text(run, "jobName"),
-                        text(run, "status"),
-                        text(run, "trigger"),
-                        text(run, "attempt"),
-                        text(run, "scheduledFor"),
-                        text(run, "finishedAt"));
+                        cell(run, "id"),
+                        cell(run, "jobName"),
+                        cell(run, "status"),
+                        cell(run, "trigger"),
+                        cell(run, "attempt"),
+                        cell(run, "scheduledFor"),
+                        cell(run, "finishedAt"));
             }
-            return table.render("No runs match.");
+            return csv ? table.csv() : table.render("No runs match.");
         });
     }
 
@@ -429,6 +434,12 @@ class JobCommands {
             out.append(String.format("%-20s %s", "output", output));
         }
         return out.toString().stripTrailing();
+    }
+
+    /** A table cell: the field's text, or null when it is missing or null, which the table shows as "-". */
+    private static String cell(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        return value.isMissingNode() || value.isNull() ? null : value.asString();
     }
 
     private static String text(JsonNode node, String field) {

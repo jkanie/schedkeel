@@ -159,6 +159,8 @@ health-check  0 * * * * *  UTC                 HTTP   true     http://localhost:
 
 `schedkeel jobs --type http` lists only the jobs of that type, in any case. When no job has it, it says so (`No HTTP jobs.`). `schedkeel jobs --name archive` lists only the jobs whose name holds that text, in any case, and works with `--type` too (`No HTTP jobs with "archive" in the name.` when none does). `schedkeel jobs --paused` lists only the paused jobs, such as to find the ones to `resume`, and works with `--type` and `--name` (`No paused HTTP jobs.` when none is paused).
 
+`schedkeel jobs --csv` and `schedkeel runs --csv` print the same rows as CSV, such as to open them in a spreadsheet: a comma between cells, and a cell that holds a comma, a quote, a line break goes in quotes, as RFC 4180 has it. A missing value, such as the finish time of a run that is still going, is an empty cell. The filters of each command still apply. When no row is left, only the header line is printed, such that a script still sees the columns.
+
 `schedkeel runs --limit N` lists the N newest runs (20 when it is left out), N from 1 to 2000, the page sizes the server takes as asked. `--status failed` keeps 1 status, in any case: QUEUED, RUNNING, SUCCEEDED, FAILED, TIMED_OUT, SKIPPED. Any other value gets an error that lists them, before any call to the server.
 
 Other commands: `job NAME`, `run ID` (1 run with its output, such as the error of a failed run), `pause NAME`, `resume NAME`, `delete NAME`.
