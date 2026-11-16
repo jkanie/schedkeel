@@ -237,7 +237,13 @@ class JobCommands {
     }
 
     @Command(name = "import", group = "Jobs", description = "Create a job from a file that export wrote")
-    String importJob(@Argument(index = 0, description = "JSON file") String file) {
+    String importJob(
+            @Argument(index = 0, description = "JSON file") String file,
+            @Option(longName = "name", description = "Create it under this name instead") String name,
+            @Option(longName = "paused", description = "Create it paused, whatever the file says") boolean paused) {
+        if (name != null && name.isBlank()) {
+            return "Error: --name needs a name, such as: import ping.json --name ping-2";
+        }
         JsonNode body;
         try {
             body = JSON.readTree(Files.readString(Path.of(file)));
@@ -250,6 +256,12 @@ class JobCommands {
             return "Error: " + file + " must hold 1 JSON object, as export writes it.";
         }
         Map<String, Object> fields = requestFields(body);
+        if (name != null) {
+            fields.put("name", name.strip());
+        }
+        if (paused) {
+            fields.put("enabled", false);
+        }
         return call(() -> "Created.\n" + describe(client.create(fields)));
     }
 

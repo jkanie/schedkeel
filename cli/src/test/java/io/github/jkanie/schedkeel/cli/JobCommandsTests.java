@@ -231,7 +231,7 @@ class JobCommandsTests {
 
         Path file = dir.resolve("ping.json");
         Files.writeString(file, exported.replace("\"ping\"", "\"ping-copy\""));
-        assertThat(commands.importJob(file.toString())).startsWith("Created.");
+        assertThat(commands.importJob(file.toString(), null, false)).startsWith("Created.");
     }
 
     @Test
@@ -267,15 +267,47 @@ class JobCommandsTests {
     }
 
     @Test
+    void importCanRenameAndPauseWhatItCreates(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("ping.json");
+        Files.writeString(file, """
+                {"name": "ping", "cron": "0 * * * * *", "timeZone": "UTC", "type": "HTTP",
+                 "target": "https://example.org", "enabled": true}
+                """);
+        server.expect(requestTo("http://sk.test/api/jobs"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"name": "ping-eu", "cron": "0 * * * * *", "timeZone": "UTC", "type": "HTTP",
+                         "target": "https://example.org", "enabled": false}
+                        """, JsonCompareMode.STRICT))
+                .andRespond(withSuccess("{\"name\": \"ping-eu\", \"enabled\": false}", HAL));
+        server.expect(requestTo("http://sk.test/api/jobs"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("""
+                        {"name": "ping", "cron": "0 * * * * *", "timeZone": "UTC", "type": "HTTP",
+                         "target": "https://example.org", "enabled": false}
+                        """, JsonCompareMode.STRICT))
+                .andRespond(withSuccess("{\"name\": \"ping\", \"enabled\": false}", HAL));
+
+        // --name replaces the name in the file, and --paused creates the job paused whatever the file says.
+        assertThat(commands.importJob(file.toString(), "ping-eu", true)).startsWith("Created.");
+        assertThat(commands.importJob(file.toString(), null, true)).startsWith("Created.");
+        // The file itself is not changed.
+        assertThat(Files.readString(file)).contains("\"name\": \"ping\"").contains("\"enabled\": true");
+        assertThat(commands.importJob(file.toString(), " ", false))
+                .isEqualTo("Error: --name needs a name, such as: import ping.json --name ping-2");
+    }
+
+    @Test
     void importReportsABadFile(@TempDir Path dir) throws IOException {
         Path missing = dir.resolve("missing.json");
-        assertThat(commands.importJob(missing.toString())).startsWith("Error: cannot read " + missing);
+        assertThat(commands.importJob(missing.toString(), null, false)).startsWith("Error: cannot read " + missing);
         Path broken = dir.resolve("broken.json");
         Files.writeString(broken, "{\"name\": ");
-        assertThat(commands.importJob(broken.toString())).startsWith("Error: " + broken + " is not JSON: ");
+        assertThat(commands.importJob(broken.toString(), null, false))
+                .startsWith("Error: " + broken + " is not JSON: ");
         Path list = dir.resolve("list.json");
         Files.writeString(list, "[]");
-        assertThat(commands.importJob(list.toString()))
+        assertThat(commands.importJob(list.toString(), null, false))
                 .isEqualTo("Error: " + list + " must hold 1 JSON object, as export writes it.");
     }
 
