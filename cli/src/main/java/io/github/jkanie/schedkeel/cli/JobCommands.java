@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Supplier;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.shell.core.command.annotation.Argument;
@@ -145,6 +146,29 @@ class JobCommands {
             String kind = (paused ? "paused " : "") + (type == null ? "" : type.toUpperCase(Locale.ROOT) + " ");
             return table.render(
                     name == null ? "No " + kind + "jobs." : "No " + kind + "jobs with \"" + name + "\" in the name.");
+        });
+    }
+
+    @Command(name = "types", group = "Jobs", description = "Count the jobs of each type, with how many are paused")
+    String types() {
+        return call(() -> {
+            // Type name -> {jobs, paused}, A to Z by type, then 1 ALL row when there is more than 1 type.
+            Map<String, int[]> counts = new TreeMap<>();
+            int[] all = new int[2];
+            for (JsonNode job : client.jobs()) {
+                int[] count = counts.computeIfAbsent(text(job, "type"), t -> new int[2]);
+                boolean paused = !job.path("enabled").asBoolean(true);
+                for (int[] c : List.of(count, all)) {
+                    c[0]++;
+                    c[1] += paused ? 1 : 0;
+                }
+            }
+            Table table = new Table("TYPE", "JOBS", "PAUSED");
+            counts.forEach((type, c) -> table.row(type, String.valueOf(c[0]), String.valueOf(c[1])));
+            if (counts.size() > 1) {
+                table.row("ALL", String.valueOf(all[0]), String.valueOf(all[1]));
+            }
+            return table.render("No jobs yet. Create one with: create --name ... --cron ... --type ... --target ...");
         });
     }
 

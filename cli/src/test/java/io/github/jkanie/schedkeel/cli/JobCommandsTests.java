@@ -135,6 +135,34 @@ class JobCommandsTests {
     }
 
     @Test
+    void countsTheJobsOfEachTypeWithThePausedOnes() {
+        server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("""
+                {"_embedded": {"jobs": [
+                  {"name": "health-check", "type": "HTTP", "enabled": false},
+                  {"name": "archive-runs", "type": "BATCH", "enabled": true},
+                  {"name": "nightly-report", "type": "HTTP", "enabled": true},
+                  {"name": "old-archive", "type": "BATCH", "enabled": false},
+                  {"name": "ping", "type": "HTTP", "enabled": true}]}}
+                """, HAL));
+        server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("""
+                {"_embedded": {"jobs": [{"name": "audit", "type": "LOG", "enabled": true}]}}
+                """, HAL));
+        server.expect(requestTo("http://sk.test/api/jobs")).andRespond(withSuccess("{}", HAL));
+
+        assertThat(commands.types()).isEqualTo("""
+                TYPE   JOBS  PAUSED
+                BATCH  2     1
+                HTTP   3     1
+                ALL    5     2""");
+        // With 1 type, the ALL row would only repeat it.
+        assertThat(commands.types()).isEqualTo("""
+                TYPE  JOBS  PAUSED
+                LOG   1     0""");
+        assertThat(commands.types())
+                .isEqualTo("No jobs yet. Create one with: create --name ... --cron ... --type ... --target ...");
+    }
+
+    @Test
     void refusesARunsLimitTheServerWouldChange() {
         // No request reaches the server: the expectations stay empty and verify() passes.
         assertThat(commands.runs(null, null, 0, false)).isEqualTo("Error: --limit must be from 1 to 2000.");
