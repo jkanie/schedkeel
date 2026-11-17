@@ -538,7 +538,7 @@ class JobCommandsTests {
                          "startedAt": "2026-03-01T12:00:31Z", "finishedAt": "2026-03-01T12:00:32Z",
                          "owner": "node-a", "output": "HTTP 503 from https://example.org\\nRetry-After: 60\\n"}
                         """, HAL));
-        assertThat(commands.run(7)).isEqualTo("""
+        assertThat(commands.run(7, false)).isEqualTo("""
                 id                   7
                 jobName              ping
                 status               FAILED
@@ -561,8 +561,29 @@ class JobCommandsTests {
                          "scheduledFor": "2026-03-01T12:00:00Z", "notBefore": "2026-03-01T12:00:00Z",
                          "startedAt": null, "finishedAt": null, "owner": null, "output": null}
                         """, HAL));
-        assertThat(commands.run(8).lines())
+        assertThat(commands.run(8, false).lines())
                 .contains("startedAt            -", "owner                -", "output               -");
+    }
+
+    @Test
+    void printsOnlyTheOutputOfARun() {
+        server.expect(requestTo("http://sk.test/api/runs/7")).andRespond(withSuccess("""
+                        {"id": 7, "jobName": "ping", "status": "FAILED",
+                         "output": "HTTP 503 from https://example.org\\nRetry-After: 60\\n"}
+                        """, HAL));
+        server.expect(requestTo("http://sk.test/api/runs/8")).andRespond(withSuccess("""
+                        {"id": 8, "jobName": "ping", "status": "QUEUED", "output": null}
+                        """, HAL));
+        server.expect(requestTo("http://sk.test/api/runs/99"))
+                .andRespond(withStatus(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                        .body("{\"status\": 404, \"detail\": \"No run has the id 99.\"}"));
+
+        // The output as stored, without its last line break, and nothing else.
+        assertThat(commands.run(7, true)).isEqualTo("HTTP 503 from https://example.org\nRetry-After: 60");
+        // A run with no output yet prints nothing, not "-".
+        assertThat(commands.run(8, true)).isEmpty();
+        assertThat(commands.run(99, true)).isEqualTo("Error 404: No run has the id 99.");
     }
 
     @Test
@@ -571,7 +592,7 @@ class JobCommandsTests {
                 .andRespond(withStatus(HttpStatus.NOT_FOUND)
                         .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                         .body("{\"status\": 404, \"detail\": \"No run has the id 99.\"}"));
-        assertThat(commands.run(99)).isEqualTo("Error 404: No run has the id 99.");
+        assertThat(commands.run(99, false)).isEqualTo("Error 404: No run has the id 99.");
     }
 
     @Test

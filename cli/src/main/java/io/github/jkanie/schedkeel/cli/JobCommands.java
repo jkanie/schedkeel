@@ -404,8 +404,21 @@ class JobCommands {
     }
 
     @Command(name = "run", group = "Runs", description = "Show 1 run with its output")
-    String run(@Argument(index = 0, description = "Run ID") long id) {
-        return call(() -> describeRun(client.run(id)));
+    String run(
+            @Argument(index = 0, description = "Run ID") long id,
+            @Option(longName = "output-only", description = "Print only the run's output, such as for grep")
+                    boolean outputOnly) {
+        // With --output-only, a run with no output yet (queued or running) prints nothing, so a pipe gets no "-".
+        return call(() -> {
+            JsonNode run = client.run(id);
+            if (!outputOnly) {
+                return describeRun(run);
+            }
+            JsonNode output = run.path("output");
+            return output.isMissingNode() || output.isNull()
+                    ? ""
+                    : output.asString().stripTrailing();
+        });
     }
 
     @Command(name = "history", group = "Jobs", description = "Show every saved version of a job")

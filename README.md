@@ -172,7 +172,7 @@ ALL    5     2
 
 `schedkeel runs --limit N` lists the N newest runs (20 when it is left out), N from 1 to 2000, the page sizes the server takes as asked. `--status failed` keeps 1 status, in any case: QUEUED, RUNNING, SUCCEEDED, FAILED, TIMED_OUT, SKIPPED. Any other value gets an error that lists them, before any call to the server.
 
-Other commands: `job NAME`, `run ID` (1 run with its output, such as the error of a failed run), `pause NAME`, `resume NAME`, `delete NAME`.
+Other commands: `job NAME`, `run ID` (1 run with its output, such as the error of a failed run), `pause NAME`, `resume NAME`, `delete NAME`. `run ID --output-only` prints only the run's output, with no field names, such as to search it with `grep`. A run with no output yet prints nothing.
 
 `schedkeel trigger health-check --wait 60` queues a run, looks at it once a second for up to 60 seconds, then prints the finished run as `run ID` does (status, times, output). A run that is still queued or running at the limit is named with its status and its ID. The wait follows that 1 run, not the re-tries that a failed run may queue.
 
